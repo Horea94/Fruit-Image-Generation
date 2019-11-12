@@ -19,8 +19,8 @@ def train(load_weights=False):
     gen = custom_generator.CustomDataGenerator(images_path=config.image_folder, masks_path=config.mask_folder, batch_size=config.batch_size, image_dimensions=config.img_size)
     model = network.unet(input_size=config.img_size)
     if load_weights:
-        if os.path.exists(config.weight_file):
-            model.load_weights(config.weight_file)
+        if os.path.exists(config.unet_weights):
+            model.load_weights(config.unet_weights)
             print("Weights successfully loaded from file. Resuming training.")
         else:
             print("Warning! Weight file not present. Beginning training from scratch.")
@@ -35,8 +35,8 @@ def train(load_weights=False):
 
 def test():
     model = network.unet(input_size=config.img_size)
-    if os.path.exists(config.weight_file):
-        model.load_weights(config.weight_file)
+    if os.path.exists(config.unet_weights):
+        model.load_weights(config.unet_weights)
     else:
         print("Warning! Weight file not present.")
 
@@ -66,8 +66,8 @@ def test2():
             patches.append(img[(i * 256):((i + 1) * 256), (j * 256):((j + 1) * 256), :])
 
     model = network.unet(input_size=config.img_size)
-    if os.path.exists(config.weight_file):
-        model.load_weights(config.weight_file)
+    if os.path.exists(config.unet_weights):
+        model.load_weights(config.unet_weights)
     else:
         print("Warning! Weight file not present.")
     y = model.predict(np.array(patches), verbose=1)
