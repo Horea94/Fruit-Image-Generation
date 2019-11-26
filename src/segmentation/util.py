@@ -3,24 +3,24 @@ from keras import backend as K
 import config
 
 
-def create_target_from_mask(mask_img, color_map=config.color_map, num_classes=config.num_classes):
+def create_target_from_mask(mask_img):
     target_shape = mask_img.shape[:-1] + (config.num_classes,)
     encoded_image = np.zeros(target_shape, dtype=np.int8)
-    for i in range(num_classes):
-        encoded_image[:, :, i] = np.all(mask_img.reshape((-1, 3)) == color_map[i], axis=1).reshape(target_shape[:-1])
+    for i in range(config.num_classes):
+        encoded_image[:, :, i] = np.all(mask_img.reshape((-1, 3)) == config.color_map[i], axis=1).reshape(target_shape[:-1])
     return encoded_image
 
 
-def create_output_from_prediction(onehot, color_map=config.color_map, num_classes=config.num_classes):
-    single_layer = np.argmax(onehot, axis=-1)
-    output = np.zeros(onehot.shape[:2] + (3,))
-    for k in range(num_classes):
-        output[single_layer == k] = color_map[k]
+def create_output_from_prediction(prediction):
+    single_layer = np.argmax(prediction, axis=-1)
+    output = np.zeros(prediction.shape[:2] + (3,))
+    for k in range(config.num_classes):
+        output[single_layer == k] = config.color_map[k]
     return np.uint8(output)
 
 
 def dice_coef(y_true, y_pred, index, smooth=1e-10):
-    import tensorflow as tf
+    # import tensorflow as tf
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = K.sum(y_true_f * y_pred_f)
