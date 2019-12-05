@@ -10,6 +10,12 @@ Orange
 Clementine
 Grapefruit Pink
 Grapefruit White
+Grape Blue
+Grape Pink
+Grape White
+Grape White 2
+Grape White 3
+Grape White 4
 Pomegranate
 Apple Braeburn
 Apple Golden 1

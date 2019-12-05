@@ -11,7 +11,6 @@ import network
 import config
 import custom_generator
 import util
-import random
 import numpy as np
 
 
@@ -55,7 +54,7 @@ def test():
 
 
 def test2():
-    img = Image.open(config.test_folder + "Input/pomegranate3.jpg")
+    img = Image.open(config.test_folder + "Input/multi_fruits2.jpg")
     w, h = img.size
     target_w = round(w / config.img_size[0]) * config.img_size[0]
     target_h = round(h / config.img_size[1]) * config.img_size[1]
