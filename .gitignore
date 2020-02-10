@@ -4,5 +4,6 @@ src/image_classification_keras/.ipynb_checkpoints
 src/image_classification_keras/output_files
 src/image_classification/fruit_models
 src/image_classification/data
-Segmentation/*
+Images/*
 src/segmentation/models
+src/object_detection/models

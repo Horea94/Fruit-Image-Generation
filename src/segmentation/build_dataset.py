@@ -6,10 +6,9 @@ import numpy as np
 import config
 import random
 from PIL import Image, ImageEnhance, ImageDraw, ImageMath, ImageFilter
-import xml.etree.ElementTree as ep
 
 
-def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True):
+def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True):
     bkg_image_paths = [config.background_folder + x for x in os.listdir(config.background_folder)]
     labels_to_images = {}
 
@@ -19,8 +18,6 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
             os.makedirs(config.image_folder)
         if not os.path.exists(config.mask_folder):
             os.makedirs(config.mask_folder)
-        if not os.path.exists(config.annotation_folder):
-            os.makedirs(config.annotation_folder)
     finally:
         mutex.release()
 
@@ -35,8 +32,8 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
         canvas = enhance_image(canvas)
         canvas = np.array(canvas)
         mask_canvas = np.array(Image.new(mode='RGB', size=config.img_size[:-1], color=(0, 0, 0)))
-        anchors = []
-        fruits_in_image = random.randint(1, 6)
+        other_images = []
+        fruits_in_image = random.randint(3, 6)
         for i in range(fruits_in_image):
             fruit_label_index = random.randint(1, len(config.fruit_labels) - 1)
             fruit_label = config.fruit_labels[fruit_label_index]
@@ -49,34 +46,12 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
                 fruit_mask = color_mask(fruit_mask, config.color_map[fruit_label_index])
             fruit_image = enhance_image(fruit_image)
             fruit_image = np.array(fruit_image)
-            add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
+            add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, other_images)
         canvas = Image.fromarray(canvas)
         mask_canvas = Image.fromarray(mask_canvas)
         canvas.save(config.image_folder + str(img_count) + '.png')
         mask_canvas.save(config.mask_folder + str(img_count) + '.png')
-        write_annotation_to_file(anchors, img_count, simple_format=simple_annotation_format)
         print("Thread %d saved image %d.png" % (thread_id, img_count))
-
-
-def write_annotation_to_file(anchors, img_count, simple_format=True):
-    if simple_format:
-        with open(config.annotation_folder + str(img_count), 'w') as f:
-            f.write(str(img_count) + '.png\n')
-            for anchor in anchors:
-                f.write(str(anchor[0][0]) + ',' + str(anchor[0][1]) + ',' + str(anchor[3][0]) + ',' + str(anchor[3][1]) + ',' + anchor[4] + '\n')
-    else:
-        root = ep.Element('annotation')
-        ep.SubElement(root, 'path').text = config.image_folder + str(img_count) + '.png'
-        for anchor in anchors:
-            obj = ep.SubElement(root, 'object')
-            ep.SubElement(obj, 'name').text = anchor[4]
-            bndbox = ep.SubElement(obj, 'bndbox')
-            ep.SubElement(bndbox, 'xmin').text = str(anchor[0][0])
-            ep.SubElement(bndbox, 'xmax').text = str(anchor[3][0])
-            ep.SubElement(bndbox, 'ymin').text = str(anchor[0][1])
-            ep.SubElement(bndbox, 'ymax').text = str(anchor[3][1])
-        tree = ep.ElementTree(root)
-        tree.write(file_or_filename=config.annotation_folder + str(img_count) + '.xml')
 
 
 def enhance_image(canvas, sharpness=True, contrast=True, color=True, brightness=True):
@@ -87,7 +62,7 @@ def enhance_image(canvas, sharpness=True, contrast=True, color=True, brightness=
 
     if contrast:
         contrast_enhancer = ImageEnhance.Contrast(canvas)
-        factor = random.random() * 1.0 + 0.5
+        factor = random.random() * 0.9 + 0.5
         canvas = contrast_enhancer.enhance(factor=factor)
 
     if color:
@@ -97,13 +72,13 @@ def enhance_image(canvas, sharpness=True, contrast=True, color=True, brightness=
 
     if brightness:
         brightness_enhancer = ImageEnhance.Brightness(canvas)
-        factor = random.random() * 0.4 + 0.8
+        factor = random.random() * 0.6 + 0.7
         canvas = brightness_enhancer.enhance(factor=factor)
     return canvas
 
 
 # TODO: add partial occlusion
-def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, anchors, fruit_label):
+def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, other_images):
     # bounds inside of which the fruit image can be added to the canvas
     # the fruit image could be partially outside of the canvas, to emulate the case where only part of the fruit is visible in an image
     max_x = canvas.shape[0] - fruit_image.shape[0] // 2
@@ -118,7 +93,7 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
         x = random.randint(-fruit_image.shape[0] // 2, max_x)
         y = random.randint(-fruit_image.shape[1] // 2, max_y)
         done = not is_overlap_between_new_image_and_old_images(((x, y), (x, y + fruit_image.shape[1]), (x + fruit_image.shape[0], y), (x + fruit_image.shape[0], y + fruit_image.shape[1])),
-                                                               anchors)
+                                                               other_images)
         attempts -= 1
     if done:
         for i in range(fruit_image.shape[0]):
@@ -127,12 +102,7 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
                     if (fruit_mask[i][j] == 255).all():
                         canvas[x + i][y + j] = fruit_image[i][j]
                         canvas_mask[x + i][y + j] = fruit_mask[i][j]
-        # if the fruit is only partially included in the image, set the anchor bounds to the edge of the canvas
-        upper_left = (max(x, 0), max(y, 0))
-        lower_left = (max(x, 0), min(y + fruit_image.shape[1], canvas.shape[1]))
-        upper_right = (min(x + fruit_image.shape[0], canvas.shape[0]), max(y, 0))
-        lower_right = (min(x + fruit_image.shape[0], canvas.shape[0]), min(y + fruit_image.shape[1], canvas.shape[1]))
-        anchors.append((upper_left, lower_left, upper_right, lower_right, fruit_label))
+        other_images.append(((x, y), (x, y + fruit_image.shape[1]), (x + fruit_image.shape[0], y), (x + fruit_image.shape[0], y + fruit_image.shape[1])))
     return done
 
 

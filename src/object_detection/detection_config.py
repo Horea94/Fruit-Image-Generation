@@ -4,13 +4,13 @@ import math
 dataset_train_folder = '../../Training/'
 dataset_test_folder = '../../Test/'
 
-background_folder = '../../Segmentation/Backgrounds/'
-train_folder = '../../Segmentation/Train/'
+background_folder = '../../Images/Backgrounds/'
+train_folder = '../../Images/Train/'
 image_folder = train_folder + 'images/'
 mask_folder = train_folder + 'masks/'
 annotation_folder = train_folder + 'annotations/'
-test_folder = '../../Segmentation/Test/Input'
-output_folder = '../../Segmentation/Rez/'
+test_folder = '../../Images/Test/Input'
+output_folder = '../../Images/Rez/'
 models_folder = 'models/'
 
 labels_file = 'labels.txt'
