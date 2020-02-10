@@ -1,0 +1,219 @@
+from __future__ import division
+import random
+import sys
+import time
+import numpy as np
+import tensorflow as tf
+
+from keras.optimizers import Adadelta
+from keras.layers import Input
+from keras.models import Model
+from keras.utils import generic_utils
+from keras.backend.tensorflow_backend import set_session
+
+import detection_config
+from utils import data_generators, loss_functions, simple_parser, roi_helpers
+from networks import vgg, resnet
+from utils.CustomLearningRateMonitor import CustomLearningRateMonitor
+from utils.CustomModelSaverUtil import CustomModelSaverUtil
+
+config2 = tf.ConfigProto()
+config2.gpu_options.allow_growth = True
+set_session(tf.Session(config=config2))
+
+sys.setrecursionlimit(40000)
+
+
+def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
+    all_imgs = simple_parser.get_data(detection_config.annotation_folder, detection_config.image_folder)
+
+    train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
+    val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+
+    print('Num train samples {}'.format(len(train_imgs)))
+    print('Num val samples {}'.format(len(val_imgs)))
+
+    nn = vgg
+    model_name_prefix = 'vgg_'
+    if not use_vgg:
+        nn = resnet
+        model_name_prefix = 'resnet_'
+    rpn_model_path = detection_config.models_folder + model_name_prefix + 'test_rpn.h5'
+    rpn_loss_path = detection_config.models_folder + model_name_prefix + 'loss'
+    cls_model_path = detection_config.models_folder + model_name_prefix + 'test_cls.h5'
+    cls_loss_path = detection_config.models_folder + model_name_prefix + 'loss'
+    helper = CustomModelSaverUtil()
+
+    data_gen_train = data_generators.get_anchor_gt(train_imgs, nn.get_img_output_length, mode='train')
+    data_gen_val = data_generators.get_anchor_gt(val_imgs, nn.get_img_output_length, mode='val')
+
+    img_input = Input(shape=detection_config.input_shape_img)
+    roi_input = Input(shape=(None, 4))
+
+    # define the base network (resnet here, can be VGG, Inception, etc)
+    shared_layers = nn.nn_base(img_input)
+
+    # define the RPN, built on the base layers
+    rpn = nn.rpn(shared_layers, detection_config.num_anchors)
+
+    classifier = nn.classifier(shared_layers, roi_input, detection_config.num_rois, nb_classes=detection_config.num_classes)
+
+    model_rpn = Model(img_input, rpn[:2])
+    model_cls = Model([img_input, roi_input], classifier)
+
+    rpn_lr = detection_config.initial_rpn_lr
+    cls_lr = detection_config.initial_cls_lr
+
+    optimizer_rpn = Adadelta(lr=rpn_lr)
+    optimizer_classifier = Adadelta(lr=cls_lr)
+
+    model_rpn.compile(optimizer=optimizer_rpn, loss=[loss_functions.rpn_loss_cls(detection_config.num_anchors), loss_functions.rpn_loss_regr(detection_config.num_anchors)])
+    model_cls.compile(optimizer=optimizer_classifier, loss=[loss_functions.class_loss_cls, loss_functions.class_loss_regr(detection_config.num_classes - 1)],
+                      metrics={'dense_class_{}'.format(detection_config.num_classes): 'accuracy'})
+
+    best_rpn_loss = np.Inf
+    best_cls_loss = np.Inf
+
+    if use_saved_rpn:
+        helper.load_model_weigths(model_rpn, rpn_model_path)
+        best_rpn_loss = helper.load_last_loss(rpn_loss_path)
+    if use_saved_cls:
+        helper.load_model_weigths(model_cls, cls_model_path)
+        best_cls_loss = helper.load_last_loss(cls_loss_path)
+
+    rpn_monitor = CustomLearningRateMonitor(model=model_rpn, lr=rpn_lr, min_lr=detection_config.min_rpn_lr, reduction_factor=0.1, patience=10)
+    cls_monitor = CustomLearningRateMonitor(model=model_cls, lr=cls_lr, min_lr=detection_config.min_cls_lr, reduction_factor=0.1, patience=10)
+
+    epoch_length = len(train_imgs)
+    iter_num = 0
+
+    losses = np.zeros((epoch_length, 5))
+    rpn_accuracy_rpn_monitor = []
+    rpn_accuracy_for_epoch = []
+    start_time = time.time()
+
+    print('Starting training')
+
+    for epoch_num in range(detection_config.epochs):
+        progbar = generic_utils.Progbar(epoch_length)
+        print('Epoch %d/%d' % (epoch_num + 1, detection_config.epochs))
+
+        while True:
+            try:
+                if len(rpn_accuracy_rpn_monitor) == epoch_length:
+                    mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor)) / len(rpn_accuracy_rpn_monitor)
+                    rpn_accuracy_rpn_monitor = []
+                    print()
+                    print('Average number of overlapping bounding boxes from RPN = %f for %d previous iterations' % (mean_overlapping_bboxes, epoch_length))
+                    if mean_overlapping_bboxes == 0:
+                        print('RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
+                X, Y, img_data = next(data_gen_train)
+
+                loss_rpn = model_rpn.train_on_batch(X, Y)
+
+                P_rpn = model_rpn.predict_on_batch(X)
+                R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], use_regr=True, overlap_thresh=0.8, max_boxes=300)
+                # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
+                X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data)
+
+                if X2 is None:
+                    rpn_accuracy_rpn_monitor.append(0)
+                    rpn_accuracy_for_epoch.append(0)
+                    continue
+
+                neg_samples = np.where(Y1[0, :, -1] == 1)
+                pos_samples = np.where(Y1[0, :, -1] == 0)
+
+                if len(neg_samples) > 0:
+                    neg_samples = neg_samples[0]
+                else:
+                    neg_samples = np.array([])
+
+                if len(pos_samples) > 0:
+                    pos_samples = pos_samples[0]
+                else:
+                    # pos_samples = np.array([])
+                    continue
+
+                if detection_config.num_rois > 1:
+                    if len(pos_samples) < detection_config.num_rois // 2:
+                        selected_pos_samples = pos_samples.tolist()
+                    else:
+                        selected_pos_samples = np.random.choice(pos_samples, detection_config.num_rois // 2, replace=False).tolist()
+                    try:
+                        selected_neg_samples = np.random.choice(neg_samples, detection_config.num_rois - len(selected_pos_samples), replace=False).tolist()
+                    except:
+                        selected_neg_samples = np.random.choice(neg_samples, detection_config.num_rois - len(selected_pos_samples), replace=True).tolist()
+                    sel_samples = selected_pos_samples + selected_neg_samples
+                else:
+                    # in the extreme case where num_rois = 1, we pick a random pos or neg sample
+                    selected_pos_samples = pos_samples.tolist()
+                    selected_neg_samples = neg_samples.tolist()
+                    if np.random.randint(0, 2):
+                        sel_samples = random.choice(neg_samples)
+                    else:
+                        sel_samples = random.choice(pos_samples)
+
+                rpn_accuracy_rpn_monitor.append(len(pos_samples))
+                rpn_accuracy_for_epoch.append((len(pos_samples)))
+
+                loss_class = model_cls.train_on_batch([X, X2[:, sel_samples, :]], [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
+
+                losses[iter_num, 0] = loss_rpn[1]
+                losses[iter_num, 1] = loss_rpn[2]
+
+                losses[iter_num, 2] = loss_class[1]
+                losses[iter_num, 3] = loss_class[2]
+                losses[iter_num, 4] = loss_class[3]
+
+                iter_num += 1
+
+                progbar.update(iter_num, [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
+                                          ('detector_cls', np.mean(losses[:iter_num, 2])), ('detector_regr', np.mean(losses[:iter_num, 3])),
+                                          ("average number of objects", len([]))])
+
+                if iter_num == epoch_length:
+                    loss_rpn_cls = np.mean(losses[:, 0])
+                    loss_rpn_regr = np.mean(losses[:, 1])
+                    loss_class_cls = np.mean(losses[:, 2])
+                    loss_class_regr = np.mean(losses[:, 3])
+                    class_acc = np.mean(losses[:, 4])
+
+                    rpn_monitor.monitor_and_update_loss(loss_rpn_cls + loss_rpn_regr)
+                    cls_monitor.monitor_and_update_loss(loss_class_cls + loss_class_regr)
+
+                    mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
+                    rpn_accuracy_for_epoch = []
+
+                    print('Mean number of bounding boxes from RPN overlapping ground truth boxes: %f' % mean_overlapping_bboxes)
+                    print('Classifier accuracy for bounding boxes from RPN: %f ' % class_acc)
+                    print('Loss RPN classifier: %f' % loss_rpn_cls)
+                    print('Loss RPN regression: %f' % loss_rpn_regr)
+                    print('Loss Detector classifier: %f' % loss_class_cls)
+                    print('Loss Detector regression: %f' % loss_class_regr)
+                    print('Elapsed time: %f' % (time.time() - start_time))
+
+                    curr_rpn_loss = loss_rpn_cls + loss_rpn_regr
+                    curr_cls_loss = loss_class_cls + loss_class_regr
+                    iter_num = 0
+                    start_time = time.time()
+
+                    if curr_rpn_loss < best_rpn_loss:
+                        print('Total loss for rpn decreased from %f to %f, not saving weights for rpn' % (best_rpn_loss, curr_rpn_loss))
+                        best_rpn_loss = curr_rpn_loss
+                        # model_rpn.save_weights(detection_config.models_folder + model_name_prefix + 'test_rpn.h5')
+                    if curr_cls_loss < best_cls_loss:
+                        print('Total loss for cls decreased from %f to %f, saving weights' % (best_cls_loss, curr_cls_loss))
+                        best_cls_loss = curr_cls_loss
+                        model_cls.save_weights(detection_config.models_folder + model_name_prefix + 'test_cls.h5')
+
+                    break
+
+            except Exception as e:
+                print('Exception: {}'.format(e))
+                continue
+
+    print('Training complete, exiting.')
+
+
+train(use_saved_rpn=True, use_saved_cls=False, use_vgg=False)

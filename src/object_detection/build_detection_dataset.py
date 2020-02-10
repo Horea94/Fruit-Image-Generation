@@ -3,7 +3,7 @@ import os
 import threading
 
 import numpy as np
-import config
+import detection_config as config
 import random
 from PIL import Image, ImageEnhance, ImageDraw, ImageMath, ImageFilter
 import xml.etree.ElementTree as ep
@@ -24,7 +24,7 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
     finally:
         mutex.release()
 
-    for i in range(1, len(config.fruit_labels)):
+    for i in range(0, len(config.fruit_labels) - 1):
         label = config.fruit_labels[i]
         img_paths = [config.dataset_train_folder + label + '/' + x for x in os.listdir(config.dataset_train_folder + label)]
         labels_to_images[label] = img_paths
@@ -37,8 +37,9 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
         mask_canvas = np.array(Image.new(mode='RGB', size=config.img_size[:-1], color=(0, 0, 0)))
         anchors = []
         fruits_in_image = random.randint(1, 6)
+        # fruits_in_image = 1
         for i in range(fruits_in_image):
-            fruit_label_index = random.randint(1, len(config.fruit_labels) - 1)
+            fruit_label_index = random.randint(0, len(config.fruit_labels) - 2)
             fruit_label = config.fruit_labels[fruit_label_index]
             fruit_image_path = labels_to_images[fruit_label][random.randint(0, len(labels_to_images[fruit_label]) - 1)]
             fruit_img_size = random.randint(config.min_fruit_size, config.max_fruit_size)
@@ -60,8 +61,8 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
 
 def write_annotation_to_file(anchors, img_count, simple_format=True):
     if simple_format:
-        with open(str(config.annotation_folder + str(img_count)), 'w') as f:
-            f.write(config.image_folder + str(img_count) + '.png\n')
+        with open(config.annotation_folder + str(img_count), 'w') as f:
+            f.write(str(img_count) + '.png\n')
             for anchor in anchors:
                 f.write(str(anchor[0][0]) + ',' + str(anchor[0][1]) + ',' + str(anchor[3][0]) + ',' + str(anchor[3][1]) + ',' + anchor[4] + '\n')
     else:
