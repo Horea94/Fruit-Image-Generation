@@ -3,16 +3,12 @@ import os
 import cv2
 import numpy as np
 import sys
-from keras.layers import Input
-from keras.models import Model
-from tensorflow import ConfigProto
+from tensorflow.keras.layers import Input
+from tensorflow.keras.models import Model
 
 from utils import roi_helpers
 import detection_config
-from networks import resnet as nn
-
-config = ConfigProto()
-config.gpu_options.allow_growth = True
+from networks import vgg, resnet
 
 sys.setrecursionlimit(40000)
 
@@ -64,11 +60,13 @@ def test(use_vgg=True):
     img_input = Input(shape=detection_config.input_shape_img)
     roi_input = Input(shape=(detection_config.num_rois, 4))
 
+    nn = vgg
     input_shape_features = (None, None, 512)
     model_name_prefix = 'vgg_'
     if not use_vgg:
-        model_name_prefix = 'resnet_'
+        nn = resnet
         input_shape_features = (None, None, 1024)
+        model_name_prefix = 'resnet_'
 
     feature_map_input = Input(shape=input_shape_features)
 
@@ -97,7 +95,6 @@ def test(use_vgg=True):
 
         # preprocess image
         X, ratio = format_img(img)
-        img_scaled = (np.transpose(X[0, :, :, :], (1, 2, 0))).astype('uint8')
         X = np.transpose(X, (0, 2, 3, 1))
         # get the feature maps and output from the RPN
         [Y1, Y2, F] = model_rpn.predict(X)
@@ -177,4 +174,4 @@ def test(use_vgg=True):
         cv2.imwrite(detection_config.output_folder + img_name, img)
 
 
-test(use_vgg=False)
+test(use_vgg=True)

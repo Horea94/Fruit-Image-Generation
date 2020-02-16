@@ -1,7 +1,6 @@
-from keras.engine.topology import Layer
-import keras.backend as K
+from tensorflow.keras.layers import Layer
+import tensorflow.keras.backend as K
 import tensorflow as tf
-
 
 class RoiPoolingConv(Layer):
     '''ROI pooling layer for 2D inputs.
@@ -59,7 +58,7 @@ class RoiPoolingConv(Layer):
             w = K.cast(w, 'int32')
             h = K.cast(h, 'int32')
 
-            rs = tf.image.resize_images(img[:, y:y + h, x:x + w, :], (self.pool_size, self.pool_size))
+            rs = tf.image.resize(img[:, y:y + h, x:x + w, :], size=(self.pool_size, self.pool_size))
             outputs.append(rs)
 
         final_output = K.concatenate(outputs, axis=0)

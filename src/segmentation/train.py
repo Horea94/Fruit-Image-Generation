@@ -2,9 +2,8 @@ import math
 import os
 
 from PIL import Image, ImageEnhance
-from sklearn.feature_extraction.image import extract_patches_2d, reconstruct_from_patches_2d
-from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
-from keras.optimizers import Adadelta, SGD
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.optimizers import Adadelta, SGD
 from keras_preprocessing.image import ImageDataGenerator
 
 import network
@@ -26,10 +25,11 @@ def train(load_weights=False):
     model.summary()
     optimizer = Adadelta(lr=0.1)
     # model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-    model.compile(optimizer=optimizer, loss=util.dice_coef_multilabel, metrics=[util.tversky_loss, 'accuracy'])
+    # experimental_run_tf_function set to false to avoid an error caused by the way tversky_loss is defined
+    model.compile(optimizer=optimizer, loss=util.dice_coef_multilabel, metrics=[util.tversky_loss, 'accuracy'], experimental_run_tf_function=False)
     model_checkpoint = ModelCheckpoint(config.unet_weights, monitor='loss', mode='min', save_best_only=True, verbose=1)
     learning_rate_reduction = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, mode='min', verbose=1)
-    model.fit_generator(gen, steps_per_epoch=len(gen), epochs=config.epochs, callbacks=[model_checkpoint, learning_rate_reduction], verbose=1)
+    model.fit(gen, steps_per_epoch=len(gen), epochs=config.epochs, callbacks=[model_checkpoint, learning_rate_reduction], verbose=1)
 
 
 def test():
@@ -54,7 +54,7 @@ def test():
 
 
 def test2():
-    img = Image.open(config.test_folder + "Input/multi_fruits2.jpg")
+    img = Image.open(config.test_folder + "6.png")
     w, h = img.size
     target_w = round(w / config.img_size[0]) * config.img_size[0]
     target_h = round(h / config.img_size[1]) * config.img_size[1]
@@ -82,5 +82,5 @@ def test2():
     img.save(config.output_folder + 'rez.png')
 
 
-# train(load_weights=False)
-test2()
+train(load_weights=False)
+# test2()

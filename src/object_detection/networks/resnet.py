@@ -1,13 +1,11 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-from keras.layers import Input, Add, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, \
-    AveragePooling2D, TimeDistributed, BatchNormalization, Dropout
-
-from keras import backend as K
-
-import detection_config
+from tensorflow.keras.layers import Input, Add, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D, TimeDistributed, BatchNormalization, Dropout
 from custom_layers.RoiPoolingConv import RoiPoolingConv
+
+import tensorflow.keras.backend as K
+import detection_config
 
 
 def get_img_output_length(width, height):

@@ -3,7 +3,7 @@ import math
 import numpy as np
 import os
 from PIL import Image
-from keras.utils import Sequence
+from tensorflow.keras.utils import Sequence
 
 import util
 
@@ -35,9 +35,15 @@ class CustomDataGenerator(Sequence):
         # selects indices of data for next batch
         indexes = self.indexes[index * self.batch_size: (index + 1) * self.batch_size]
         # select data and load images
-        masks = np.array([util.create_target_from_mask(np.array(Image.open(self.masks_paths[k]).resize(self.dim[:-1]))) for k in indexes])
+        masks = np.array([util.create_target_from_mask(np.array(Image.open(self.masks_paths[k]).resize(self.dim[:-1]))) for k in indexes], dtype='float32')
         images = np.array([np.array(Image.open(self.images_paths[k]).resize(self.dim[:-1])) for k in indexes])
-        return images, masks
+        # input image data / target mask / class weights
+        # class weights is currently an array of None to prevent TensorFlow 2.1 to provide the following error message:
+        # WARNING:tensorflow:sample_weight modes were coerced from
+        #    ...
+        #    to
+        #    ['...']
+        return images, masks, [None]
 
     def build_image_paths(self, starting_path):
         image_paths = [starting_path + x for x in os.listdir(starting_path)]

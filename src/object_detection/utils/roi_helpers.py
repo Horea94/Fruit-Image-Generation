@@ -89,8 +89,8 @@ def calc_iou(R, img_data):
         return None, None, None, None
 
     X = np.array(x_roi)
-    Y1 = np.array(y_class_num)
-    Y2 = np.concatenate([np.array(y_class_regr_label), np.array(y_class_regr_coords)], axis=1)
+    Y1 = np.array(y_class_num).astype(float)
+    Y2 = np.concatenate([np.array(y_class_regr_label).astype(float), np.array(y_class_regr_coords).astype(float)], axis=1)
 
     return np.expand_dims(X, axis=0), np.expand_dims(Y1, axis=0), np.expand_dims(Y2, axis=0), IoUs
 
@@ -234,14 +234,14 @@ def rpn_to_roi(rpn_layer, regr_layer, use_regr=True, max_boxes=300, overlap_thre
 
     curr_layer = 0
     A = np.zeros((4, rpn_layer.shape[1], rpn_layer.shape[2], rpn_layer.shape[3]))
-
+    # TODO: check correctness
     for anchor_size in anchor_sizes:
         for anchor_ratio in anchor_ratios:
 
             anchor_x = (anchor_size * anchor_ratio[0]) / detection_config.rpn_stride
             anchor_y = (anchor_size * anchor_ratio[1]) / detection_config.rpn_stride
 
-            regr = regr_layer[0, :, :, 4 * curr_layer:4 * curr_layer + 4]
+            regr = regr_layer[0, :, :, 4 * curr_layer:4 * (curr_layer + 1)]
             regr = np.transpose(regr, (2, 0, 1))
 
             X, Y = np.meshgrid(np.arange(cols), np.arange(rows))

@@ -152,7 +152,11 @@ def build_mask(fruit_image, threshold=config.mask_threshold):
     inv_fn = lambda x: 0 if x == 255 else 255
     img = fruit_image.convert('L').point(fn, mode='1')
     img_copy = img.copy()
-    ImageDraw.floodfill(img_copy, (0, 0), 255)
+    x, y = fruit_image.size
+    ImageDraw.floodfill(img_copy, xy=(0, 0), value=255)
+    ImageDraw.floodfill(img_copy, xy=(x - 1, 0), value=255)
+    ImageDraw.floodfill(img_copy, xy=(0, y - 1), value=255)
+    ImageDraw.floodfill(img_copy, xy=(x - 1, y - 1), value=255)
     img_copy = img_copy.point(inv_fn, mode='1')
     img = ImageMath.eval("a | b", a=img, b=img_copy)
     img = img.convert('RGB')

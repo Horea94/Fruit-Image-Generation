@@ -2,8 +2,11 @@ from __future__ import absolute_import
 import numpy as np
 import cv2
 import random
-from utils import data_augment
+import os
+import math
 import detection_config
+from tensorflow.keras.utils import Sequence
+from utils import data_augment, simple_parser
 
 
 def union(au, bu, area_intersection):
@@ -61,9 +64,9 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
     n_anchratios = len(anchor_ratios)
 
     # initialise empty output objectives
-    y_rpn_overlap = np.zeros((output_height, output_width, num_anchors)).astype(int)
-    y_is_box_valid = np.zeros((output_height, output_width, num_anchors)).astype(int)
-    y_rpn_regr = np.zeros((output_height, output_width, num_anchors * 4))
+    y_rpn_overlap = np.zeros((output_height, output_width, num_anchors)).astype(float)
+    y_is_box_valid = np.zeros((output_height, output_width, num_anchors)).astype(float)
+    y_rpn_regr = np.zeros((output_height, output_width, num_anchors * 4)).astype(float)
 
     num_bboxes = len(img_data['bboxes'])
 
@@ -177,17 +180,11 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
             # no box with an IOU greater than zero ...
             if best_anchor_for_bbox[idx, 0] == -1:
                 continue
-            y_is_box_valid[
-                best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], best_anchor_for_bbox[idx, 2] + n_anchratios *
-                best_anchor_for_bbox[idx, 3]] = 1
-            y_rpn_overlap[
-                best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], best_anchor_for_bbox[idx, 2] + n_anchratios *
-                best_anchor_for_bbox[idx, 3]] = 1
+            y_is_box_valid[best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], best_anchor_for_bbox[idx, 2] + n_anchratios * best_anchor_for_bbox[idx, 3]] = 1
+            y_rpn_overlap[best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], best_anchor_for_bbox[idx, 2] + n_anchratios * best_anchor_for_bbox[idx, 3]] = 1
             start = 4 * (best_anchor_for_bbox[idx, 2] + n_anchratios * best_anchor_for_bbox[idx, 3])
-            y_rpn_regr[
-            best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], start:start + 2] = best_dx_for_bbox[idx, 0:2]
-            y_rpn_regr[
-            best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], start + 2:start + 4] = np.log(best_dx_for_bbox[idx, 2:4])
+            y_rpn_regr[best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], start:start + 2] = best_dx_for_bbox[idx, 0:2]
+            y_rpn_regr[best_anchor_for_bbox[idx, 0], best_anchor_for_bbox[idx, 1], start + 2:start + 4] = np.log(best_dx_for_bbox[idx, 2:4])
 
     y_rpn_overlap = np.transpose(y_rpn_overlap, (2, 0, 1))
     y_rpn_overlap = np.expand_dims(y_rpn_overlap, axis=0)
@@ -222,52 +219,108 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
     return np.copy(y_rpn_cls), np.copy(y_rpn_regr)
 
 
-def get_anchor_gt(all_img_data, img_length_calc_function, mode='train'):
+def get_anchor_gt(all_img_data, img_length_calc_function, augment=True, shuffle=True):
     # The following line is not useful with Python 3.5, it is kept for the legacy
     # all_img_data = sorted(all_img_data)
 
     while True:
-        if mode == 'train':
+        if shuffle:
             np.random.shuffle(all_img_data)
 
         for img_data in all_img_data:
             try:
-
                 # read in image, and optionally add augmentation
-
-                img_data_aug, x_img = data_augment.augment(img_data, augment=(mode == 'train'))
-
-                (width, height) = (img_data_aug['width'], img_data_aug['height'])
-                (rows, cols, _) = x_img.shape
-
-                assert cols == width
-                assert rows == height
-
-                # get image dimensions for resizing
-                (resized_width, resized_height) = get_new_img_size(width, height, detection_config.im_size)
-
-                # resize the image so that smalles side is length = 600px
-                x_img = cv2.resize(x_img, (resized_width, resized_height), interpolation=cv2.INTER_CUBIC)
+                height, width, resized_height, resized_width, img_data_aug, x_img = augment_and_resize_image(img_data, augment=augment)
 
                 try:
                     y_rpn_cls, y_rpn_regr = calc_rpn(img_data_aug, width, height, resized_width, resized_height, img_length_calc_function)
                 except:
                     continue
 
-                x_img = x_img[:, :, (2, 1, 0)]  # BGR -> RGB
-                x_img = x_img.astype(np.float32)
-
-                x_img = np.transpose(x_img, (2, 0, 1))
-                x_img = np.expand_dims(x_img, axis=0)
-
-                y_rpn_regr[:, y_rpn_regr.shape[1] // 2:, :, :] *= detection_config.std_scaling
-
-                x_img = np.transpose(x_img, (0, 2, 3, 1))
-                y_rpn_cls = np.transpose(y_rpn_cls, (0, 2, 3, 1))
-                y_rpn_regr = np.transpose(y_rpn_regr, (0, 2, 3, 1))
+                x_img, y_rpn_cls, y_rpn_regr = arrange_dims(x_img, y_rpn_cls, y_rpn_regr)
 
                 yield np.copy(x_img), [np.copy(y_rpn_cls), np.copy(y_rpn_regr)], img_data_aug
 
             except Exception as e:
                 print(e)
                 continue
+
+
+def augment_and_resize_image(img_data, augment=True):
+    img_data_aug, x_img = data_augment.augment(img_data, augment=augment)
+    (width, height) = (img_data_aug['width'], img_data_aug['height'])
+    (rows, cols, _) = x_img.shape
+    assert cols == width
+    assert rows == height
+    # get image dimensions for resizing
+    (resized_width, resized_height) = get_new_img_size(width, height, detection_config.im_size)
+    # resize the image so that smalles side is length = 256px
+    x_img = cv2.resize(x_img, (resized_width, resized_height), interpolation=cv2.INTER_CUBIC)
+    return height, width, resized_height, resized_width, img_data_aug, x_img
+
+
+def arrange_dims(x_img, y_rpn_cls, y_rpn_regr):
+    x_img = x_img[:, :, (2, 1, 0)]  # BGR -> RGB
+    x_img = x_img.astype(np.float32)
+    x_img = np.transpose(x_img, (2, 0, 1))
+    x_img = np.expand_dims(x_img, axis=0)
+    y_rpn_regr[:, y_rpn_regr.shape[1] // 2:, :, :] *= detection_config.std_scaling
+    x_img = np.transpose(x_img, (0, 2, 3, 1))
+    y_rpn_cls = np.transpose(y_rpn_cls, (0, 2, 3, 1))
+    y_rpn_regr = np.transpose(y_rpn_regr, (0, 2, 3, 1))
+    return x_img, y_rpn_cls, y_rpn_regr
+
+
+class CustomDataGenerator(Sequence):
+    def __init__(self, all_imgs, img_length_calc_function, batch_size=5, image_dimensions=detection_config.img_size, augment=True, shuffle=True):
+        self.all_imgs = all_imgs
+        self.indexes = np.arange(len(self.all_imgs))
+        self.img_length_calc_function = img_length_calc_function
+        self.dim = image_dimensions  # image dimensions
+        self.batch_size = batch_size  # batch size
+        self.shuffle = shuffle  # shuffle bool
+        self.augment = augment  # augment data bool
+        self.on_epoch_end()
+
+    def __len__(self):
+        """Denotes the smallest number of batches per epoch to include all images in the train set at least once"""
+        return int(math.ceil(len(self.all_imgs) / self.batch_size))
+
+    def on_epoch_end(self):
+        """Updates indexes after each epoch"""
+        self.indexes = np.arange(len(self.all_imgs))
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
+
+    def __getitem__(self, index):
+        """Generate one batch of data"""
+        # selects indices of data for next batch
+        indexes = self.indexes[index * self.batch_size: (index + 1) * self.batch_size]
+        # select data and load images
+        x_imgs = []
+        y_rpn_cls_targets = []
+        y_rpn_regr_targets = []
+        class_weights = []
+        for index in indexes:
+            height, width, resized_height, resized_width, img_data_aug, x_img = augment_and_resize_image(self.all_imgs[index], augment=self.augment)
+            try:
+                y_rpn_cls, y_rpn_regr = calc_rpn(img_data_aug, width, height, resized_width, resized_height, self.img_length_calc_function)
+            except:
+                continue
+            x_img, y_rpn_cls, y_rpn_regr = arrange_dims(x_img, y_rpn_cls, y_rpn_regr)
+            x_imgs.append(x_img)
+            y_rpn_cls_targets.append(y_rpn_cls)
+            y_rpn_regr_targets.append(y_rpn_regr)
+            class_weights.append([None, None])
+        # class weights is currently an array of None to prevent TensorFlow 2.1 to provide the following warning:
+        # WARNING:tensorflow:sample_weight modes were coerced from
+        #    ...
+        #    to
+        #    ['...']
+        x_imgs = np.array(x_imgs)
+        x_imgs = np.reshape(x_imgs, (x_imgs.shape[0],) + self.dim)
+        y_rpn_cls_targets = np.array(y_rpn_cls_targets)
+        y_rpn_regr_targets = np.array(y_rpn_regr_targets)
+        y_rpn_cls_targets = np.reshape(y_rpn_cls_targets, (y_rpn_cls_targets.shape[0],) + y_rpn_cls_targets.shape[2:])
+        y_rpn_regr_targets = np.reshape(y_rpn_regr_targets, (y_rpn_regr_targets.shape[0],) + y_rpn_regr_targets.shape[2:])
+        return x_imgs, [y_rpn_cls_targets, y_rpn_regr_targets]

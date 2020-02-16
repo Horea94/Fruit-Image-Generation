@@ -3,13 +3,12 @@ import os
 dataset_train_folder = '../../Training/'
 dataset_test_folder = '../../Test/'
 
-background_folder = '../../Images/Backgrounds/'
-train_folder = '../../Images/Train/'
+background_folder = '../../Dataset/Backgrounds/'
+train_folder = '../../Dataset/Train/'
 image_folder = train_folder + 'images/'
 mask_folder = train_folder + 'masks/'
-annotation_folder = train_folder + 'annotations/'
-test_folder = '../../Images/Test/'
-output_folder = '../../Images/Rez/'
+test_folder = '../../Dataset/Test/'
+output_folder = '../../Dataset/Output/'
 models_folder = 'models/'
 unet_weights = models_folder + 'unet.h5'
 

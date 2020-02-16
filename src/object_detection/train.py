@@ -3,23 +3,17 @@ import random
 import sys
 import time
 import numpy as np
-import tensorflow as tf
 
-from keras.optimizers import Adadelta
-from keras.layers import Input
-from keras.models import Model
-from keras.utils import generic_utils
-from keras.backend.tensorflow_backend import set_session
+from tensorflow.keras.optimizers import Adadelta
+from tensorflow.keras.layers import Input
+from tensorflow.keras.models import Model
+from tensorflow.keras.utils import Progbar
 
 import detection_config
 from utils import data_generators, loss_functions, simple_parser, roi_helpers
 from networks import vgg, resnet
 from utils.CustomLearningRateMonitor import CustomLearningRateMonitor
 from utils.CustomModelSaverUtil import CustomModelSaverUtil
-
-config2 = tf.ConfigProto()
-config2.gpu_options.allow_growth = True
-set_session(tf.Session(config=config2))
 
 sys.setrecursionlimit(40000)
 
@@ -39,13 +33,13 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
         nn = resnet
         model_name_prefix = 'resnet_'
     rpn_model_path = detection_config.models_folder + model_name_prefix + 'test_rpn.h5'
-    rpn_loss_path = detection_config.models_folder + model_name_prefix + 'loss'
+    rpn_loss_path = detection_config.models_folder + model_name_prefix + 'loss_rpn'
     cls_model_path = detection_config.models_folder + model_name_prefix + 'test_cls.h5'
-    cls_loss_path = detection_config.models_folder + model_name_prefix + 'loss'
+    cls_loss_path = detection_config.models_folder + model_name_prefix + 'loss_cls'
     helper = CustomModelSaverUtil()
 
-    data_gen_train = data_generators.get_anchor_gt(train_imgs, nn.get_img_output_length, mode='train')
-    data_gen_val = data_generators.get_anchor_gt(val_imgs, nn.get_img_output_length, mode='val')
+    data_gen_train = data_generators.get_anchor_gt(train_imgs, nn.get_img_output_length, augment=True, shuffle=True)
+    data_gen_val = data_generators.get_anchor_gt(val_imgs, nn.get_img_output_length, augment=False, shuffle=False)
 
     img_input = Input(shape=detection_config.input_shape_img)
     roi_input = Input(shape=(None, 4))
@@ -64,8 +58,8 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
     rpn_lr = detection_config.initial_rpn_lr
     cls_lr = detection_config.initial_cls_lr
 
-    optimizer_rpn = Adadelta(lr=rpn_lr)
-    optimizer_classifier = Adadelta(lr=cls_lr)
+    optimizer_rpn = Adadelta(learning_rate=rpn_lr)
+    optimizer_classifier = Adadelta(learning_rate=cls_lr)
 
     model_rpn.compile(optimizer=optimizer_rpn, loss=[loss_functions.rpn_loss_cls(detection_config.num_anchors), loss_functions.rpn_loss_regr(detection_config.num_anchors)])
     model_cls.compile(optimizer=optimizer_classifier, loss=[loss_functions.class_loss_cls, loss_functions.class_loss_regr(detection_config.num_classes - 1)],
@@ -81,8 +75,8 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
         helper.load_model_weigths(model_cls, cls_model_path)
         best_cls_loss = helper.load_last_loss(cls_loss_path)
 
-    rpn_monitor = CustomLearningRateMonitor(model=model_rpn, lr=rpn_lr, min_lr=detection_config.min_rpn_lr, reduction_factor=0.1, patience=10)
-    cls_monitor = CustomLearningRateMonitor(model=model_cls, lr=cls_lr, min_lr=detection_config.min_cls_lr, reduction_factor=0.1, patience=10)
+    rpn_monitor = CustomLearningRateMonitor(model=model_rpn, lr=rpn_lr, min_lr=detection_config.min_rpn_lr, reduction_factor=0.5, patience=10)
+    cls_monitor = CustomLearningRateMonitor(model=model_cls, lr=cls_lr, min_lr=detection_config.min_cls_lr, reduction_factor=0.5, patience=10)
 
     epoch_length = len(train_imgs)
     iter_num = 0
@@ -95,7 +89,7 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
     print('Starting training')
 
     for epoch_num in range(detection_config.epochs):
-        progbar = generic_utils.Progbar(epoch_length)
+        progbar = Progbar(epoch_length)
         print('Epoch %d/%d' % (epoch_num + 1, detection_config.epochs))
 
         while True:
@@ -112,7 +106,9 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
                 loss_rpn = model_rpn.train_on_batch(X, Y)
 
                 P_rpn = model_rpn.predict_on_batch(X)
-                R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], use_regr=True, overlap_thresh=0.8, max_boxes=300)
+                # with eager execution, predict on batch returns one or more eager tensors
+                # further down we need to operate with actual values so we call .numpy() on the tensors
+                R = roi_helpers.rpn_to_roi(P_rpn[0].numpy(), P_rpn[1].numpy(), use_regr=True, overlap_thresh=0.8, max_boxes=300)
                 # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
                 X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data)
 
@@ -170,7 +166,7 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
 
                 progbar.update(iter_num, [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
                                           ('detector_cls', np.mean(losses[:iter_num, 2])), ('detector_regr', np.mean(losses[:iter_num, 3])),
-                                          ("average number of objects", len([]))])
+                                          ("average number of objects", len(selected_pos_samples))])
 
                 if iter_num == epoch_length:
                     loss_rpn_cls = np.mean(losses[:, 0])
@@ -179,8 +175,8 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
                     loss_class_regr = np.mean(losses[:, 3])
                     class_acc = np.mean(losses[:, 4])
 
-                    rpn_monitor.monitor_and_update_loss(loss_rpn_cls + loss_rpn_regr)
-                    cls_monitor.monitor_and_update_loss(loss_class_cls + loss_class_regr)
+                    rpn_monitor.reduce_lr_on_plateau(loss_rpn_cls + loss_rpn_regr)
+                    cls_monitor.reduce_lr_on_plateau(loss_class_cls + loss_class_regr)
 
                     mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
                     rpn_accuracy_for_epoch = []
@@ -199,13 +195,13 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
                     start_time = time.time()
 
                     if curr_rpn_loss < best_rpn_loss:
-                        print('Total loss for rpn decreased from %f to %f, not saving weights for rpn' % (best_rpn_loss, curr_rpn_loss))
+                        print('Total loss for rpn decreased from %f to %f, saving weights' % (best_rpn_loss, curr_rpn_loss))
                         best_rpn_loss = curr_rpn_loss
-                        # model_rpn.save_weights(detection_config.models_folder + model_name_prefix + 'test_rpn.h5')
+                        helper.save_model_and_loss(model_rpn, best_rpn_loss, rpn_model_path, rpn_loss_path)
                     if curr_cls_loss < best_cls_loss:
                         print('Total loss for cls decreased from %f to %f, saving weights' % (best_cls_loss, curr_cls_loss))
                         best_cls_loss = curr_cls_loss
-                        model_cls.save_weights(detection_config.models_folder + model_name_prefix + 'test_cls.h5')
+                        helper.save_model_and_loss(model_cls, best_cls_loss, cls_model_path, cls_loss_path)
 
                     break
 
@@ -216,4 +212,4 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
     print('Training complete, exiting.')
 
 
-train(use_saved_rpn=True, use_saved_cls=False, use_vgg=False)
+train(use_saved_rpn=True, use_saved_cls=False, use_vgg=True)

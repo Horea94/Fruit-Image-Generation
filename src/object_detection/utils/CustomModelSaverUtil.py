@@ -22,7 +22,7 @@ class CustomModelSaverUtil:
             f = open(loss_path, mode='r')
             loss = float(f.readline().strip())
             f.close()
-            print('Previous best rpn loss was %f' % loss)
+            print('Previous best loss was %f' % loss)
         else:
             print('%s file not found! Previous best loss not defined.' % loss_path)
         return loss

@@ -1,23 +1,17 @@
 from __future__ import division
 import sys
-import tensorflow as tf
 import numpy as np
-from keras.callbacks import ReduceLROnPlateau
+from tensorflow.keras.callbacks import ReduceLROnPlateau
+from tensorflow.keras.optimizers import Adadelta, Adam
+from tensorflow.keras.layers import Input
+from tensorflow.keras.models import Model
 
-from keras.optimizers import Adadelta
-from keras.layers import Input
-from keras.models import Model
-from keras.backend.tensorflow_backend import set_session
-
+import tensorflow as tf
 import detection_config
 from utils import data_generators, loss_functions, simple_parser
 from networks import vgg, resnet
 from custom_callbacks.CustomModelSaver import CustomModelSaver
 from utils.CustomModelSaverUtil import CustomModelSaverUtil
-
-config2 = tf.ConfigProto()
-config2.gpu_options.allow_growth = True
-set_session(tf.Session(config=config2))
 
 sys.setrecursionlimit(40000)
 
@@ -41,10 +35,10 @@ def train(use_saved_rpn=False, use_vgg=True):
     helper = CustomModelSaverUtil()
     best_loss = np.Inf
 
-    data_gen_train = data_generators.get_anchor_gt(train_imgs, nn.get_img_output_length, mode='train')
-    data_gen_val = data_generators.get_anchor_gt(val_imgs, nn.get_img_output_length, mode='val')
+    data_gen_train = data_generators.CustomDataGenerator(train_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_size, augment=True, shuffle=True)
+    data_gen_val = data_generators.CustomDataGenerator(val_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_size, augment=False, shuffle=False)
 
-    img_input = Input(shape=detection_config.input_shape_img)
+    img_input = Input(shape=detection_config.input_shape_img, dtype='float32')
 
     # define the base network (resnet here, can be VGG, Inception, etc)
     shared_layers = nn.nn_base(img_input)
@@ -56,7 +50,7 @@ def train(use_saved_rpn=False, use_vgg=True):
 
     rpn_lr = detection_config.initial_rpn_lr
 
-    optimizer_rpn = Adadelta(lr=rpn_lr)
+    optimizer_rpn = Adadelta(learning_rate=rpn_lr)
 
     model_rpn.compile(optimizer=optimizer_rpn, loss=[loss_functions.rpn_loss_cls(detection_config.num_anchors), loss_functions.rpn_loss_regr(detection_config.num_anchors)])
 
@@ -64,12 +58,12 @@ def train(use_saved_rpn=False, use_vgg=True):
         helper.load_model_weigths(model_rpn, model_path)
         best_loss = helper.load_last_loss(loss_path)
 
-    epoch_length = len(train_imgs)
+    epoch_length = len(data_gen_train)
 
     print('Starting training')
     model_ckpt = CustomModelSaver(model_path=model_path, loss_path=loss_path, best_loss=best_loss)
-    model_lr_monitor = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=5, verbose=1)
-    model_rpn.fit_generator(data_gen_train, steps_per_epoch=epoch_length, epochs=detection_config.epochs, callbacks=[model_ckpt, model_lr_monitor], verbose=1)
+    model_lr_monitor = ReduceLROnPlateau(monitor='loss', factor=0.5, min_lr=detection_config.min_rpn_lr, patience=10, verbose=1)
+    model_rpn.fit(data_gen_train, steps_per_epoch=epoch_length, epochs=detection_config.epochs, callbacks=[model_ckpt, model_lr_monitor], verbose=1)
 
 
-train(use_saved_rpn=True, use_vgg=True)
+train(use_saved_rpn=False, use_vgg=True)

@@ -1,5 +1,5 @@
-from keras import Input, Model, regularizers
-from keras.layers import Conv2D, MaxPooling2D, Dropout, Conv2DTranspose, Softmax, BatchNormalization, Lambda, Concatenate, Activation, UpSampling2D
+from tensorflow.keras import Input, Model, regularizers
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Conv2DTranspose, Softmax, BatchNormalization, Lambda, Concatenate, Activation, UpSampling2D
 import config
 
 

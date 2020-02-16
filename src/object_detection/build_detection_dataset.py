@@ -130,9 +130,9 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
                         canvas_mask[x + i][y + j] = fruit_mask[i][j]
         # if the fruit is only partially included in the image, set the anchor bounds to the edge of the canvas
         upper_left = (max(x, 0), max(y, 0))
-        lower_left = (max(x, 0), min(y + fruit_image.shape[1], canvas.shape[1]))
-        upper_right = (min(x + fruit_image.shape[0], canvas.shape[0]), max(y, 0))
-        lower_right = (min(x + fruit_image.shape[0], canvas.shape[0]), min(y + fruit_image.shape[1], canvas.shape[1]))
+        lower_left = (max(x, 0), min(y + fruit_image.shape[1], canvas.shape[1] - 1))
+        upper_right = (min(x + fruit_image.shape[0], canvas.shape[0] - 1), max(y, 0))
+        lower_right = (min(x + fruit_image.shape[0], canvas.shape[0] - 1), min(y + fruit_image.shape[1], canvas.shape[1] - 1))
         anchors.append((upper_left, lower_left, upper_right, lower_right, fruit_label))
     return done
 
@@ -183,7 +183,11 @@ def build_mask(fruit_image, threshold=config.mask_threshold):
     inv_fn = lambda x: 0 if x == 255 else 255
     img = fruit_image.convert('L').point(fn, mode='1')
     img_copy = img.copy()
-    ImageDraw.floodfill(img_copy, (0, 0), 255)
+    x, y = fruit_image.size
+    ImageDraw.floodfill(img_copy, xy=(0, 0), value=255)
+    ImageDraw.floodfill(img_copy, xy=(x-1, 0), value=255)
+    ImageDraw.floodfill(img_copy, xy=(0, y-1), value=255)
+    ImageDraw.floodfill(img_copy, xy=(x-1, y-1), value=255)
     img_copy = img_copy.point(inv_fn, mode='1')
     img = ImageMath.eval("a | b", a=img, b=img_copy)
     img = img.convert('RGB')
