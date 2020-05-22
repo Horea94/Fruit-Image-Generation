@@ -1,9 +1,12 @@
 *.iml
 .idea
-src/image_classification_keras/.ipynb_checkpoints
-src/image_classification_keras/output_files
-src/image_classification/fruit_models
-src/image_classification/data
+src/image_classification/.ipynb_checkpoints
+src/image_classification/output_files
+src/image_classification_tf_1.8.0/fruit_models
+src/image_classification_tf_1.8.0/data
 Dataset/*
 src/segmentation/models
 src/object_detection/models
+Test
+Training
+test-multiple_fruits

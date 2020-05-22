@@ -9,13 +9,14 @@ from tensorflow.keras.models import Model
 from utils import roi_helpers
 import detection_config
 from networks import vgg, resnet
+from utils.CustomModelSaverUtil import CustomModelSaverUtil
 
 sys.setrecursionlimit(40000)
 
 
 def format_img_size(img):
     """ formats the image size based on config """
-    img_min_side = float(detection_config.im_size)
+    img_min_side = float(detection_config.img_size)
     (height, width, _) = img.shape
 
     if width <= height:
@@ -68,6 +69,9 @@ def test(use_vgg=True):
         input_shape_features = (None, None, 1024)
         model_name_prefix = 'resnet_'
 
+    helper = CustomModelSaverUtil()
+    model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
+
     feature_map_input = Input(shape=input_shape_features)
 
     # define the base network (resnet here, can be VGG, Inception, etc)
@@ -82,10 +86,10 @@ def test(use_vgg=True):
     model_rpn = Model(img_input, rpn_layers)
     model_classifier = Model([feature_map_input, roi_input], classifier)
 
-    model_rpn.load_weights(detection_config.models_folder + model_name_prefix + 'test_rpn.h5', by_name=True)
-    model_classifier.load_weights(detection_config.models_folder + model_name_prefix + 'test_cls.h5', by_name=True)
+    helper.load_model_weigths(model_rpn, model_path)
+    helper.load_model_weigths(model_classifier, model_path)
 
-    bbox_threshold = 0.8
+    bbox_threshold = 0.4
 
     for img_name in os.listdir(detection_config.test_folder):
         img_path = detection_config.test_folder
@@ -128,7 +132,7 @@ def test(use_vgg=True):
 
             for ii in range(P_cls.shape[1]):
                 (x, y, w, h) = ROIs[0, ii, :]
-                print("Predicted %s with probability %f at coords (x0, y0, x1, y1): (%d, %d, %d, %d)" % (detection_config.fruit_labels[np.argmax(P_cls[0, ii, :])], np.max(P_cls[0, ii, :]), 16 * x, 16 * y, 16 * (x + w), 16 * (y + h)))
+                # print("Predicted %s with probability %f at coords (x0, y0, x1, y1): (%d, %d, %d, %d)" % (detection_config.fruit_labels[np.argmax(P_cls[0, ii, :])], np.max(P_cls[0, ii, :]), 16 * x, 16 * y, 16 * (x + w), 16 * (y + h)))
 
                 if np.max(P_cls[0, ii, :]) < 0.8 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
                     continue
@@ -140,7 +144,7 @@ def test(use_vgg=True):
                     probs[cls_name] = []
                 (x, y, w, h) = ROIs[0, ii, :]
 
-                bboxes[cls_name].append([16 * x, 16 * y, 16 * (x + w), 16 * (y + h)])
+                bboxes[cls_name].append([detection_config.rpn_stride * x, detection_config.rpn_stride * y, detection_config.rpn_stride * (x + w), detection_config.rpn_stride * (y + h)])
                 probs[cls_name].append(np.max(P_cls[0, ii, :]))
 
         all_dets = []
@@ -160,12 +164,12 @@ def test(use_vgg=True):
                 textLabel = '{}: {}'.format(key, int(100 * new_probs[jk]))
                 all_dets.append((key, 100 * new_probs[jk]))
 
-                (retval, baseLine) = cv2.getTextSize(textLabel, cv2.FONT_HERSHEY_COMPLEX, 1, 1)
+                (retval, baseLine) = cv2.getTextSize(textLabel, cv2.FONT_HERSHEY_COMPLEX, 0.9, 1)
                 textOrg = (real_x1, real_y1 - 0)
 
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (0, 0, 0), 2)
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
-                cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
+                cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 0), 1)
 
         print(all_dets)
         print(bboxes)

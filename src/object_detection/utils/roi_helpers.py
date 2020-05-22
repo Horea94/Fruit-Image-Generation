@@ -9,7 +9,7 @@ def calc_iou(R, img_data):
     bboxes = img_data['bboxes']
     (width, height) = (img_data['width'], img_data['height'])
     # get image dimensions for resizing
-    (resized_width, resized_height) = data_generators.get_new_img_size(width, height, detection_config.im_size)
+    (resized_width, resized_height) = data_generators.get_new_img_size(width, height, detection_config.img_size)
 
     gta = np.zeros((len(bboxes), 4))
 
@@ -198,8 +198,8 @@ def non_max_suppression_fast(boxes, probs, overlap_thresh=0.9, max_boxes=300):
         xx2_int = np.minimum(x2[i], x2[idxs[:last]])
         yy2_int = np.minimum(y2[i], y2[idxs[:last]])
 
-        ww_int = np.maximum(0, xx2_int - xx1_int + 1)
-        hh_int = np.maximum(0, yy2_int - yy1_int + 1)
+        ww_int = np.maximum(0, xx2_int - xx1_int)
+        hh_int = np.maximum(0, yy2_int - yy1_int)
 
         area_int = ww_int * hh_int
 
@@ -209,7 +209,6 @@ def non_max_suppression_fast(boxes, probs, overlap_thresh=0.9, max_boxes=300):
         # compute the ratio of overlap
         overlap = area_int / (area_union + 1e-6)
 
-        # TODO: test if should be overlap > overlap_thresh)[0](initial) or overlap < overlap_thresh)[0]
         # delete all indexes from the index list that have a higher degree of overlap
         idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlap_thresh)[0])))
 

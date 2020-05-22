@@ -38,7 +38,7 @@ def iou(a, b):
     return float(area_i) / float(area_u + 1e-6)
 
 
-def get_new_img_size(width, height, img_min_side=256):
+def get_new_img_size(width, height, img_min_side=detection_config.img_size):
     if width <= height:
         f = float(img_min_side) / width
         resized_height = int(f * height)
@@ -246,33 +246,8 @@ def get_anchor_gt(all_img_data, img_length_calc_function, augment=True, shuffle=
                 continue
 
 
-def augment_and_resize_image(img_data, augment=True):
-    img_data_aug, x_img = data_augment.augment(img_data, augment=augment)
-    (width, height) = (img_data_aug['width'], img_data_aug['height'])
-    (rows, cols, _) = x_img.shape
-    assert cols == width
-    assert rows == height
-    # get image dimensions for resizing
-    (resized_width, resized_height) = get_new_img_size(width, height, detection_config.im_size)
-    # resize the image so that smalles side is length = 256px
-    x_img = cv2.resize(x_img, (resized_width, resized_height), interpolation=cv2.INTER_CUBIC)
-    return height, width, resized_height, resized_width, img_data_aug, x_img
-
-
-def arrange_dims(x_img, y_rpn_cls, y_rpn_regr):
-    x_img = x_img[:, :, (2, 1, 0)]  # BGR -> RGB
-    x_img = x_img.astype(np.float32)
-    x_img = np.transpose(x_img, (2, 0, 1))
-    x_img = np.expand_dims(x_img, axis=0)
-    y_rpn_regr[:, y_rpn_regr.shape[1] // 2:, :, :] *= detection_config.std_scaling
-    x_img = np.transpose(x_img, (0, 2, 3, 1))
-    y_rpn_cls = np.transpose(y_rpn_cls, (0, 2, 3, 1))
-    y_rpn_regr = np.transpose(y_rpn_regr, (0, 2, 3, 1))
-    return x_img, y_rpn_cls, y_rpn_regr
-
-
 class CustomDataGenerator(Sequence):
-    def __init__(self, all_imgs, img_length_calc_function, batch_size=5, image_dimensions=detection_config.img_size, augment=True, shuffle=True):
+    def __init__(self, all_imgs, img_length_calc_function, batch_size=5, image_dimensions=detection_config.img_shape, augment=True, shuffle=True):
         self.all_imgs = all_imgs
         self.indexes = np.arange(len(self.all_imgs))
         self.img_length_calc_function = img_length_calc_function
@@ -324,3 +299,28 @@ class CustomDataGenerator(Sequence):
         y_rpn_cls_targets = np.reshape(y_rpn_cls_targets, (y_rpn_cls_targets.shape[0],) + y_rpn_cls_targets.shape[2:])
         y_rpn_regr_targets = np.reshape(y_rpn_regr_targets, (y_rpn_regr_targets.shape[0],) + y_rpn_regr_targets.shape[2:])
         return x_imgs, [y_rpn_cls_targets, y_rpn_regr_targets]
+
+
+def augment_and_resize_image(img_data, augment=True):
+    img_data_aug, x_img = data_augment.augment(img_data, augment=augment)
+    (width, height) = (img_data_aug['width'], img_data_aug['height'])
+    (rows, cols, _) = x_img.shape
+    assert cols == width
+    assert rows == height
+    # get image dimensions for resizing
+    (resized_width, resized_height) = get_new_img_size(width, height, detection_config.img_size)
+    # resize the image so that smalles side is length = 256px
+    x_img = cv2.resize(x_img, (resized_width, resized_height), interpolation=cv2.INTER_CUBIC)
+    return height, width, resized_height, resized_width, img_data_aug, x_img
+
+
+def arrange_dims(x_img, y_rpn_cls, y_rpn_regr):
+    x_img = x_img[:, :, (2, 1, 0)]  # BGR -> RGB
+    x_img = x_img.astype(np.float32)
+    x_img = np.transpose(x_img, (2, 0, 1))
+    x_img = np.expand_dims(x_img, axis=0)
+    y_rpn_regr[:, y_rpn_regr.shape[1] // 2:, :, :] *= detection_config.std_scaling
+    x_img = np.transpose(x_img, (0, 2, 3, 1))
+    y_rpn_cls = np.transpose(y_rpn_cls, (0, 2, 3, 1))
+    y_rpn_regr = np.transpose(y_rpn_regr, (0, 2, 3, 1))
+    return x_img, y_rpn_cls, y_rpn_regr

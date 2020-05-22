@@ -31,10 +31,10 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
 
     for index in range(limit):
         img_count = index * total_threads + thread_id
-        canvas = Image.open(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)]).resize(config.img_size[:-1]).convert('RGB')
+        canvas = Image.open(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)]).resize(config.img_shape[:-1]).convert('RGB')
         canvas = enhance_image(canvas)
         canvas = np.array(canvas)
-        mask_canvas = np.array(Image.new(mode='RGB', size=config.img_size[:-1], color=(0, 0, 0)))
+        mask_canvas = np.array(Image.new(mode='RGB', size=config.img_shape[:-1], color=(0, 0, 0)))
         anchors = []
         fruits_in_image = random.randint(1, 6)
         # fruits_in_image = 1
@@ -107,8 +107,14 @@ def enhance_image(canvas, sharpness=True, contrast=True, color=True, brightness=
 def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, anchors, fruit_label):
     # bounds inside of which the fruit image can be added to the canvas
     # the fruit image could be partially outside of the canvas, to emulate the case where only part of the fruit is visible in an image
-    max_x = canvas.shape[0] - fruit_image.shape[0] // 2
-    max_y = canvas.shape[1] - fruit_image.shape[1] // 2
+    # max_x = canvas.shape[0] - fruit_image.shape[0] // 2
+    # max_y = canvas.shape[1] - fruit_image.shape[1] // 2
+    # min_x = -fruit_image.shape[0]
+    # min_y = -fruit_image.shape[1]
+    max_x = canvas.shape[0] - fruit_image.shape[0] - 1
+    max_y = canvas.shape[1] - fruit_image.shape[1] - 1
+    min_x = 0
+    min_y = 0
     x = 0
     y = 0
     done = False
@@ -116,8 +122,8 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
     while not done and attempts > 0:
         # attempt to find a free area on the canvas to add the image
         # if no free space is found, the image is not added
-        x = random.randint(-fruit_image.shape[0] // 2, max_x)
-        y = random.randint(-fruit_image.shape[1] // 2, max_y)
+        x = random.randint(min_x // 2, max_x)
+        y = random.randint(min_y // 2, max_y)
         done = not is_overlap_between_new_image_and_old_images(((x, y), (x, y + fruit_image.shape[1]), (x + fruit_image.shape[0], y), (x + fruit_image.shape[0], y + fruit_image.shape[1])),
                                                                anchors)
         attempts -= 1
@@ -157,20 +163,20 @@ def is_src_img_inside_dest_img(src_img_coordinates, dest_img_coordinates):
 
     # set the coordinates lower for each image to allow some degree of overlap
     # source image
-    factor = 12
+    factor = config.overlap_factor
     src_img_height = abs(upper_left_point[0] - lower_left_point[0])
     src_img_width = abs(upper_left_point[1] - upper_right_point[1])
-    upper_left_point = (upper_left_point[0] + src_img_height // factor, upper_left_point[1] + src_img_width // factor)
-    upper_right_point = (upper_right_point[0] + src_img_height // factor, upper_right_point[1] - src_img_width // factor)
-    lower_left_point = (lower_left_point[0] - src_img_height // factor, lower_left_point[1] + src_img_width // factor)
-    lower_right_point = (lower_right_point[0] - src_img_height // factor, lower_right_point[1] - src_img_width // factor)
+    upper_left_point = (upper_left_point[0] + math.floor(src_img_height * factor), upper_left_point[1] + math.floor(src_img_width * factor))
+    upper_right_point = (upper_right_point[0] + math.floor(src_img_height * factor), upper_right_point[1] - math.floor(src_img_width * factor))
+    lower_left_point = (lower_left_point[0] - math.floor(src_img_height * factor), lower_left_point[1] + math.floor(src_img_width * factor))
+    lower_right_point = (lower_right_point[0] - math.floor(src_img_height * factor), lower_right_point[1] - math.floor(src_img_width * factor))
     # destination image
     dest_img_height = abs(height_upper_bound - height_lower_bound)
     dest_img_width = abs(width_right_bound - width_left_bound)
-    height_lower_bound -= dest_img_height // factor
-    height_upper_bound += dest_img_height // factor
-    width_left_bound += dest_img_width // factor
-    width_right_bound -= dest_img_width // factor
+    height_lower_bound -= math.floor(dest_img_height * factor)
+    height_upper_bound += math.floor(dest_img_height * factor)
+    width_left_bound += math.floor(dest_img_width * factor)
+    width_right_bound -= math.floor(dest_img_width * factor)
 
     return ((height_upper_bound <= upper_left_point[0] <= height_lower_bound and width_left_bound <= upper_left_point[1] <= width_right_bound) or
             (height_upper_bound <= upper_right_point[0] <= height_lower_bound and width_left_bound <= upper_right_point[1] <= width_right_bound) or

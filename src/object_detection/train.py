@@ -4,7 +4,7 @@ import sys
 import time
 import numpy as np
 
-from tensorflow.keras.optimizers import Adadelta
+from tensorflow.keras.optimizers import Adadelta, Adam
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import Progbar
@@ -32,9 +32,8 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
     if not use_vgg:
         nn = resnet
         model_name_prefix = 'resnet_'
-    rpn_model_path = detection_config.models_folder + model_name_prefix + 'test_rpn.h5'
+    model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
     rpn_loss_path = detection_config.models_folder + model_name_prefix + 'loss_rpn'
-    cls_model_path = detection_config.models_folder + model_name_prefix + 'test_cls.h5'
     cls_loss_path = detection_config.models_folder + model_name_prefix + 'loss_cls'
     helper = CustomModelSaverUtil()
 
@@ -52,8 +51,9 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
 
     classifier = nn.classifier(shared_layers, roi_input, detection_config.num_rois, nb_classes=detection_config.num_classes)
 
-    model_rpn = Model(img_input, rpn[:2])
-    model_cls = Model([img_input, roi_input], classifier)
+    model_rpn = Model(img_input, rpn[:2], name='rpn')
+    model_cls = Model([img_input, roi_input], classifier, name='cls')
+    model_all = Model([img_input, roi_input], rpn[:2] + classifier)
 
     rpn_lr = detection_config.initial_rpn_lr
     cls_lr = detection_config.initial_cls_lr
@@ -64,15 +64,16 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
     model_rpn.compile(optimizer=optimizer_rpn, loss=[loss_functions.rpn_loss_cls(detection_config.num_anchors), loss_functions.rpn_loss_regr(detection_config.num_anchors)])
     model_cls.compile(optimizer=optimizer_classifier, loss=[loss_functions.class_loss_cls, loss_functions.class_loss_regr(detection_config.num_classes - 1)],
                       metrics={'dense_class_{}'.format(detection_config.num_classes): 'accuracy'})
+    model_all.compile(optimizer='sgd', loss='mae')
 
     best_rpn_loss = np.Inf
     best_cls_loss = np.Inf
 
     if use_saved_rpn:
-        helper.load_model_weigths(model_rpn, rpn_model_path)
+        helper.load_model_weigths(model_rpn, model_path)
         best_rpn_loss = helper.load_last_loss(rpn_loss_path)
     if use_saved_cls:
-        helper.load_model_weigths(model_cls, cls_model_path)
+        helper.load_model_weigths(model_cls, model_path)
         best_cls_loss = helper.load_last_loss(cls_loss_path)
 
     rpn_monitor = CustomLearningRateMonitor(model=model_rpn, lr=rpn_lr, min_lr=detection_config.min_rpn_lr, reduction_factor=0.5, patience=10)
@@ -97,13 +98,12 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
                 if len(rpn_accuracy_rpn_monitor) == epoch_length:
                     mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor)) / len(rpn_accuracy_rpn_monitor)
                     rpn_accuracy_rpn_monitor = []
-                    print()
                     print('Average number of overlapping bounding boxes from RPN = %f for %d previous iterations' % (mean_overlapping_bboxes, epoch_length))
                     if mean_overlapping_bboxes == 0:
                         print('RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
                 X, Y, img_data = next(data_gen_train)
 
-                loss_rpn = model_rpn.train_on_batch(X, Y)
+                loss_rpn = model_rpn.train_on_batch(x=X, y=Y)
 
                 P_rpn = model_rpn.predict_on_batch(X)
                 # with eager execution, predict on batch returns one or more eager tensors
@@ -128,12 +128,13 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
                 if len(pos_samples) > 0:
                     pos_samples = pos_samples[0]
                 else:
-                    # pos_samples = np.array([])
-                    continue
+                    # continue
+                    pos_samples = np.array([])
 
                 if detection_config.num_rois > 1:
                     if len(pos_samples) < detection_config.num_rois // 2:
                         selected_pos_samples = pos_samples.tolist()
+                        # selected_pos_samples = np.random.choice(pos_samples, detection_config.num_rois // 2, replace=True).tolist()
                     else:
                         selected_pos_samples = np.random.choice(pos_samples, detection_config.num_rois // 2, replace=False).tolist()
                     try:
@@ -194,14 +195,13 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
                     iter_num = 0
                     start_time = time.time()
 
-                    if curr_rpn_loss < best_rpn_loss:
-                        print('Total loss for rpn decreased from %f to %f, saving weights' % (best_rpn_loss, curr_rpn_loss))
+                    if curr_rpn_loss + curr_cls_loss < best_rpn_loss + best_cls_loss:
+                        print('Total loss for model decreased from %f to %f, saving weights' % (best_rpn_loss + best_cls_loss, curr_rpn_loss + curr_cls_loss))
                         best_rpn_loss = curr_rpn_loss
-                        helper.save_model_and_loss(model_rpn, best_rpn_loss, rpn_model_path, rpn_loss_path)
-                    if curr_cls_loss < best_cls_loss:
-                        print('Total loss for cls decreased from %f to %f, saving weights' % (best_cls_loss, curr_cls_loss))
                         best_cls_loss = curr_cls_loss
-                        helper.save_model_and_loss(model_cls, best_cls_loss, cls_model_path, cls_loss_path)
+                        helper.save_model_weights(model_all, model_path)
+                        helper.save_loss(curr_rpn_loss, rpn_loss_path)
+                        helper.save_loss(curr_cls_loss, cls_loss_path)
 
                     break
 
@@ -212,4 +212,4 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
     print('Training complete, exiting.')
 
 
-train(use_saved_rpn=True, use_saved_cls=False, use_vgg=True)
+train(use_saved_rpn=True, use_saved_cls=True, use_vgg=False)

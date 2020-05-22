@@ -6,7 +6,6 @@ from tensorflow.keras.optimizers import Adadelta, Adam
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 
-import tensorflow as tf
 import detection_config
 from utils import data_generators, loss_functions, simple_parser
 from networks import vgg, resnet
@@ -30,13 +29,13 @@ def train(use_saved_rpn=False, use_vgg=True):
     if not use_vgg:
         nn = resnet
         model_name_prefix = 'resnet_'
-    model_path = detection_config.models_folder + model_name_prefix + 'test_rpn.h5'
+    model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
     loss_path = detection_config.models_folder + model_name_prefix + 'loss_rpn'
     helper = CustomModelSaverUtil()
     best_loss = np.Inf
 
-    data_gen_train = data_generators.CustomDataGenerator(train_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_size, augment=True, shuffle=True)
-    data_gen_val = data_generators.CustomDataGenerator(val_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_size, augment=False, shuffle=False)
+    data_gen_train = data_generators.CustomDataGenerator(train_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_shape, augment=True, shuffle=True)
+    data_gen_val = data_generators.CustomDataGenerator(val_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_shape, augment=False, shuffle=False)
 
     img_input = Input(shape=detection_config.input_shape_img, dtype='float32')
 
@@ -66,4 +65,4 @@ def train(use_saved_rpn=False, use_vgg=True):
     model_rpn.fit(data_gen_train, steps_per_epoch=epoch_length, epochs=detection_config.epochs, callbacks=[model_ckpt, model_lr_monitor], verbose=1)
 
 
-train(use_saved_rpn=False, use_vgg=True)
+train(use_saved_rpn=False, use_vgg=False)

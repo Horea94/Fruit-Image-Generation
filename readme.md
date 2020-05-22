@@ -1,21 +1,21 @@
 # Fruits-360: A dataset of images containing fruits and vegetables #
 
-## Version: 2019.09.21.0 ##
+## Version: 2020.05.18.0 ##
 
 A high-quality, dataset of images containing fruits and vegetables. The following fruits and vegetables are included: 
-Apples (different varieties: Crimson Snow, Golden, Golden-Red, Granny Smith, Pink Lady, Red, Red Delicious), Apricot, Avocado, Avocado ripe, Banana (Yellow, Red, Lady Finger), Beetroot Red, Blueberry, Cactus fruit, Cantaloupe (2 varieties), Carambula, Cauliflower, Cherry (different varieties, Rainier), Cherry Wax (Yellow, Red, Black), Chestnut, Clementine, Cocos, Dates, Eggplant, Ginger Root, Granadilla, Grape (Blue, Pink, White (different varieties)), Grapefruit (Pink, White), Guava, Hazelnut, Huckleberry, Kiwi, Kaki, Kohlrabi, Kumsquats, Lemon (normal, Meyer), Lime, Lychee, Mandarine, Mango (Green, Red), Mangostan, Maracuja, Melon Piel de Sapo, Mulberry, Nectarine (Regular, Flat), Nut (Forest, Pecan), Onion (Red, White), Orange, Papaya, Passion fruit, Peach (different varieties), Pepino, Pear (different varieties, Abate, Forelle, Kaiser, Monster, Red, Williams), Pepper (Red, Green, Yellow), Physalis (normal, with Husk), Pineapple (normal, Mini), Pitahaya Red, Plum (different varieties), Pomegranate, Pomelo Sweetie, Potato (Red, Sweet, White), Quince, Rambutan, Raspberry, Redcurrant, Salak, Strawberry (normal, Wedge), Tamarillo, Tangelo, Tomato (different varieties, Maroon, Cherry Red, Yellow), Walnut.
+Apples (different varieties: Crimson Snow, Golden, Golden-Red, Granny Smith, Pink Lady, Red, Red Delicious), Apricot, Avocado, Avocado ripe, Banana (Yellow, Red, Lady Finger), Beetroot Red, Blueberry, Cactus fruit, Cantaloupe (2 varieties), Carambula, Cauliflower, Cherry (different varieties, Rainier), Cherry Wax (Yellow, Red, Black), Chestnut, Clementine, Cocos, Corn (with husk), Cucumber (ripened), Dates, Eggplant, Fig, Ginger Root, Granadilla, Grape (Blue, Pink, White (different varieties)), Grapefruit (Pink, White), Guava, Hazelnut, Huckleberry, Kiwi, Kaki, Kohlrabi, Kumsquats, Lemon (normal, Meyer), Lime, Lychee, Mandarine, Mango (Green, Red), Mangostan, Maracuja, Melon Piel de Sapo, Mulberry, Nectarine (Regular, Flat), Nut (Forest, Pecan), Onion (Red, White), Orange, Papaya, Passion fruit, Peach (different varieties), Pepino, Pear (different varieties, Abate, Forelle, Kaiser, Monster, Red, Stone, Williams), Pepper (Red, Green, Orange, Yellow), Physalis (normal, with Husk), Pineapple (normal, Mini), Pitahaya Red, Plum (different varieties), Pomegranate, Pomelo Sweetie, Potato (Red, Sweet, White), Quince, Rambutan, Raspberry, Redcurrant, Salak, Strawberry (normal, Wedge), Tamarillo, Tangelo, Tomato (different varieties, Maroon, Cherry Red, Yellow, not ripened, Heart), Walnut, Watermelon.
 
 ## Dataset properties ##
 
-Total number of images: 82213.
+Total number of images: 90483.
 
-Training set size: 61488 images (one fruit or vegetable per image).
+Training set size: 67692 images (one fruit or vegetable per image).
 
-Test set size: 20622 images (one fruit or vegetable per image).
+Test set size: 22688 images (one fruit or vegetable per image).
 
 Multi-fruits set size: 103 images (more than one fruit (or fruit class) per image)
 
-Number of classes: 120 (fruits and vegetables).
+Number of classes: 131 (fruits and vegetables).
 
 Image size: 100x100 pixels.
 
@@ -29,7 +29,9 @@ Folders [Training](Training) and [Test](Test) contain images for training and te
 
 Folder [test-multiple_fruits](test-multiple_fruits) contains images with multiple fruits. Some of them are partially covered by other fruits. This is an excelent test for real-world detection.
 
-Folder [src/image_classification](src/image_classification) contains the python code for training the neural network. It uses the TensorFlow library.
+Folder [src/image_classification](src/image_classification) contains the python code for training the neural network. It uses the TensorFlow 2.0 library.
+
+Folder [src/image_classification_tf_1.8.0](src/image_classification_tf_1.8.0) contains the old version of the python code for training the neural network. It uses the TensorFlow 1.8.0 library.
 
 Folder [src/utils](src/utils) contains the C++ code used for extracting the fruits or vegetables from background.
 
@@ -124,15 +126,17 @@ Fruits were filmed at the dates given below (YYYY.MM.DD):
 
 2019.04.21 - Apple Crimson Snow, Apple Pink Lady, Blueberry, Kohlrabi, Mango Red, Pear Red, Pepper (Red, Yellow, Green).
 
-2019.06.18 - Beetroot Red, Ginger Root, Nectarine Flat, Nut Forest, Onion Red, Onion Red Peeled, Onion White, Potato Red, Potato Red Washed, Potato Sweet, Potato White.
+2019.06.18 - Beetroot Red, Corn, Ginger Root, Nectarine Flat, Nut Forest, Onion Red, Onion Red Peeled, Onion White, Potato Red, Potato Red Washed, Potato Sweet, Potato White.
 
-2019.07.07 - Cauliflower, Eggplant, Pear Forelle.
+2019.07.07 - Cauliflower, Eggplant, Pear Forelle, Pepper Orange, Tomato Heart.
+
+2019.09.22 - Corn Husk, Cucumber Ripe, Fig, Pear 2, Pear Stone, Tomato not Ripened, Watermelon.
 
 ## License ##
 
 MIT License
 
-Copyright (c) 2017-2019 [Mihai Oltean](https://mihaioltean.github.io), Horea Muresan
+Copyright (c) 2017-2020 [Mihai Oltean](https://mihaioltean.github.io), Horea Muresan
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
