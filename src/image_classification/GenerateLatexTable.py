@@ -1,6 +1,6 @@
 import os
 
-base_dir = '..\\..'  # relative path to the Fruit-Images-Dataset folder
+base_dir = '../..'  # relative path to the Fruit-Images-Dataset folder
 test_dir = os.path.join(base_dir, 'Test')
 train_dir = os.path.join(base_dir, 'Training')
 
