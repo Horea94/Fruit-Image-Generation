@@ -1,15 +1,16 @@
 import numpy as np
-import math
 
 dataset_train_folder = '../../Training/'
 dataset_test_folder = '../../Test/'
 
 background_folder = '../../Dataset/Backgrounds/'
 train_folder = '../../Dataset/Train/'
+test_folder = '../../Dataset/Test/'
 image_folder = train_folder + 'images/'
 mask_folder = train_folder + 'masks/'
 annotation_folder = train_folder + 'annotations/'
-test_folder = '../../Dataset/Test/Input/'
+test_images = test_folder + 'images/'
+test_annotations = test_folder + 'annotations/'
 output_folder = '../../Dataset/Output/'
 models_folder = 'models/'
 labels_file = 'labels.txt'
@@ -31,7 +32,7 @@ img_shape = (img_size, img_size, 3)  # height, width, channels
 
 # min/max width and height of images that are used to build the training data for each class
 min_fruit_size = 60
-max_fruit_size = 500
+max_fruit_size = 240
 
 overlap_factor = 0.0
 
@@ -39,13 +40,13 @@ mask_threshold = 246  # threshold used for generating masks
 # number of images to generate in the segmentation dataset
 # for each generated image, the corresponding mask is also generated
 # so the total number of generated images is 2 * dataset_generation_limit
-dataset_generation_limit = 300
+dataset_generation_limit = 1000
 # number of threads that build the dataset
 # the load is balanced among the threads
 total_threads = 1
 
 ################################# Training Parameters #################################
-batch_size = 1
+batch_size = 3
 epochs = 200
 input_shape_img = (None, None, 3)  # height, width, channels
 
@@ -57,14 +58,14 @@ random_rotate = False
 # balanced_classes = True
 
 # anchor box scales
-anchor_box_scales = [64, 128, 256, 512]
+anchor_box_scales = [64, 128, 256]
 # anchor box ratios
-anchor_box_ratios = [[1, 1], [2, 1], [1, 2]]
+anchor_box_ratios = [[1, 1], [1, 2], [2, 1]]
 num_anchors = len(anchor_box_scales) * len(anchor_box_ratios)
 # number of ROIs at once
 # this should be determined based on the average number of objects per image as the training algorithm will try to feed roughly half positive and half negative samples
 # if num_rois is too great compared to the number of objects in the image, most of the samples will represent background, thus the classifier will fail to train correctly
-num_rois = 6
+num_rois = 10
 # stride at the RPN (this depends on the network configuration)
 rpn_stride = 16
 

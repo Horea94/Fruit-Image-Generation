@@ -2,11 +2,10 @@ from __future__ import absolute_import
 import numpy as np
 import cv2
 import random
-import os
 import math
 import detection_config
 from tensorflow.keras.utils import Sequence
-from utils import data_augment, simple_parser
+from utils import data_augment
 
 
 def union(au, bu, area_intersection):
@@ -309,7 +308,7 @@ def augment_and_resize_image(img_data, augment=True):
     assert rows == height
     # get image dimensions for resizing
     (resized_width, resized_height) = get_new_img_size(width, height, detection_config.img_size)
-    # resize the image so that smalles side is length = 256px
+    # resize the image so that smallest side has length = 640px
     x_img = cv2.resize(x_img, (resized_width, resized_height), interpolation=cv2.INTER_CUBIC)
     return height, width, resized_height, resized_width, img_data_aug, x_img
 

@@ -60,14 +60,20 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
     return real_x1, real_y1, real_x2, real_y2
 
 
-def test(use_vgg=True):
+# Currently this outputs a list of  bounding boxes that the rpn predicts
+# TODO: filter the predicted bounding boxes to see if any overlap with the ground truth
+def test(model_name='vgg'):
     img_input = Input(shape=detection_config.input_shape_img)
 
-    nn = vgg
-    model_name_prefix = 'vgg_'
-    if not use_vgg:
+    if model_name == 'vgg':
+        nn = vgg
+    elif model_name == 'resnet':
         nn = resnet
-        model_name_prefix = 'resnet_'
+    else:
+        print("model with name: %s is not supported" % model_name)
+        print("The supported models are:\nvgg\nresnet\n")
+        return
+    model_name_prefix = model_name + '_'
 
     helper = CustomModelSaverUtil()
     model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
@@ -83,7 +89,7 @@ def test(use_vgg=True):
     helper.load_model_weigths(model_rpn, model_path)
 
     bbox_threshold = 0.8
-    all_img_data = simple_parser.get_data('../../Dataset/Test/annot/', detection_config.test_folder)
+    all_img_data = simple_parser.get_data(detection_config.test_annotations, detection_config.test_images)
 
     for img_data in all_img_data:
         height, width, resized_height, resized_width, img_data_aug, x_img = data_generators.augment_and_resize_image(img_data, augment=False)
@@ -97,11 +103,15 @@ def test(use_vgg=True):
         # X = np.transpose(X, (0, 2, 3, 1))
         # get the feature maps and output from the RPN
         [Y1, Y2, F] = model_rpn.predict(x_img)
+        print("Image name: %s" % img_data['filepath'])
+        print("Expected: ")
+        for l in img_data['bboxes']:
+            print(l)
+        print("Predicted: ")
         R = roi_helpers.rpn_to_roi(Y1, Y2, overlap_thresh=bbox_threshold)
         for i in range(R.shape[0]):
             (x, y, x2, y2) = R[i, :]
             print((x*detection_config.rpn_stride, y*detection_config.rpn_stride, x2*detection_config.rpn_stride, y2*detection_config.rpn_stride))
 
 
-
-test(use_vgg=True)
+test(model_name='vgg')

@@ -18,20 +18,24 @@ from utils.CustomModelSaverUtil import CustomModelSaverUtil
 sys.setrecursionlimit(40000)
 
 
-def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
+def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
     all_imgs = simple_parser.get_data(detection_config.annotation_folder, detection_config.image_folder)
 
-    train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
-    val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+    train_imgs = [s for s in all_imgs if s['imageset'] == 'train']
+    val_imgs = [s for s in all_imgs if s['imageset'] == 'val']
 
     print('Num train samples {}'.format(len(train_imgs)))
     print('Num val samples {}'.format(len(val_imgs)))
 
-    nn = vgg
-    model_name_prefix = 'vgg_'
-    if not use_vgg:
+    if model_name == 'vgg':
+        nn = vgg
+    elif model_name == 'resnet':
         nn = resnet
-        model_name_prefix = 'resnet_'
+    else:
+        print("model with name: %s is not supported" % model_name)
+        print("The supported models are:\nvgg\nresnet\n")
+        return
+    model_name_prefix = model_name + '_'
     model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
     rpn_loss_path = detection_config.models_folder + model_name_prefix + 'loss_rpn'
     cls_loss_path = detection_config.models_folder + model_name_prefix + 'loss_cls'
@@ -212,4 +216,4 @@ def train(use_saved_rpn=False, use_saved_cls=False, use_vgg=True):
     print('Training complete, exiting.')
 
 
-train(use_saved_rpn=True, use_saved_cls=True, use_vgg=False)
+train(use_saved_rpn=True, use_saved_cls=True, model_name='vgg')

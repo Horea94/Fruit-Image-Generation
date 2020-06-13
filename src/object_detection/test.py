@@ -57,17 +57,20 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
     return real_x1, real_y1, real_x2, real_y2
 
 
-def test(use_vgg=True):
+def test(model_name='vgg'):
     img_input = Input(shape=detection_config.input_shape_img)
     roi_input = Input(shape=(detection_config.num_rois, 4))
 
-    nn = vgg
     input_shape_features = (None, None, 512)
-    model_name_prefix = 'vgg_'
-    if not use_vgg:
+    if model_name == 'vgg':
+        nn = vgg
+    elif model_name == 'resnet':
         nn = resnet
-        input_shape_features = (None, None, 1024)
-        model_name_prefix = 'resnet_'
+    else:
+        print("model with name: %s is not supported" % model_name)
+        print("The supported models are:\nvgg\nresnet\n")
+        return
+    model_name_prefix = model_name + '_'
 
     helper = CustomModelSaverUtil()
     model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
@@ -91,8 +94,8 @@ def test(use_vgg=True):
 
     bbox_threshold = 0.4
 
-    for img_name in os.listdir(detection_config.test_folder):
-        img_path = detection_config.test_folder
+    for img_name in os.listdir(detection_config.test_images):
+        img_path = detection_config.test_images
         filepath = os.path.join(img_path, img_name)
 
         img = cv2.imread(filepath)
@@ -131,9 +134,6 @@ def test(use_vgg=True):
             # print(P_cls)
 
             for ii in range(P_cls.shape[1]):
-                (x, y, w, h) = ROIs[0, ii, :]
-                # print("Predicted %s with probability %f at coords (x0, y0, x1, y1): (%d, %d, %d, %d)" % (detection_config.fruit_labels[np.argmax(P_cls[0, ii, :])], np.max(P_cls[0, ii, :]), 16 * x, 16 * y, 16 * (x + w), 16 * (y + h)))
-
                 if np.max(P_cls[0, ii, :]) < 0.8 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
                     continue
 
@@ -159,13 +159,13 @@ def test(use_vgg=True):
                 (x1, y1, x2, y2) = new_boxes[jk, :]
                 (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
 
-                cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2), (int(detection_config.class_to_color[key][0]), int(detection_config.class_to_color[key][1]), int(detection_config.class_to_color[key][2])), 2)
+                cv2.rectangle(img, (real_y1, real_x1), (real_y2, real_x2), (int(detection_config.class_to_color[key][0]), int(detection_config.class_to_color[key][1]), int(detection_config.class_to_color[key][2])), 2)
 
                 textLabel = '{}: {}'.format(key, int(100 * new_probs[jk]))
                 all_dets.append((key, 100 * new_probs[jk]))
 
                 (retval, baseLine) = cv2.getTextSize(textLabel, cv2.FONT_HERSHEY_COMPLEX, 0.9, 1)
-                textOrg = (real_x1, real_y1 - 0)
+                textOrg = (real_y1, real_x1)
 
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (0, 0, 0), 2)
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
@@ -178,4 +178,4 @@ def test(use_vgg=True):
         cv2.imwrite(detection_config.output_folder + img_name, img)
 
 
-test(use_vgg=True)
+test(model_name='vgg')
