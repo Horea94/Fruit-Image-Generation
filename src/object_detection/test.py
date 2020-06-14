@@ -178,4 +178,4 @@ def test(model_name='vgg'):
         cv2.imwrite(detection_config.output_folder + img_name, img)
 
 
-test(model_name='vgg')
+test(model_name=detection_config.used_model_name)

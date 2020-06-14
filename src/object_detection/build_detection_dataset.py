@@ -83,22 +83,22 @@ def write_annotation_to_file(anchors, img_count, simple_format=True):
 def enhance_image(canvas, sharpness=True, contrast=True, color=True, brightness=True):
     if sharpness:
         sharpness_enhancer = ImageEnhance.Sharpness(canvas)
-        factor = random.random() * 0.6 + 0.7
+        factor = random.random() + 1.0
         canvas = sharpness_enhancer.enhance(factor=factor)
 
     if contrast:
         contrast_enhancer = ImageEnhance.Contrast(canvas)
-        factor = random.random() * 1.0 + 0.5
+        factor = random.random() * 0.4 + 0.8
         canvas = contrast_enhancer.enhance(factor=factor)
 
     if color:
         color_enhancer = ImageEnhance.Color(canvas)
-        factor = random.random() * 0.6 + 0.7
+        factor = random.random() * 0.4 + 0.8
         canvas = color_enhancer.enhance(factor=factor)
 
     if brightness:
         brightness_enhancer = ImageEnhance.Brightness(canvas)
-        factor = random.random() * 0.4 + 0.8
+        factor = random.random() * 0.2 + 0.9
         canvas = brightness_enhancer.enhance(factor=factor)
     return canvas
 

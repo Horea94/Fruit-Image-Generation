@@ -18,8 +18,8 @@ sys.setrecursionlimit(40000)
 def train(use_saved_rpn=False, model_name='vgg'):
     all_imgs = simple_parser.get_data(detection_config.annotation_folder, detection_config.image_folder)
 
-    train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
-    val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+    train_imgs = [s for s in all_imgs if s['imageset'] == 'train']
+    val_imgs = [s for s in all_imgs if s['imageset'] == 'val']
 
     print('Num train samples {}'.format(len(train_imgs)))
     print('Num val samples {}'.format(len(val_imgs)))
@@ -73,4 +73,4 @@ def train(use_saved_rpn=False, model_name='vgg'):
 # models currently supported:
 # vgg
 # resnet
-train(use_saved_rpn=True, model_name='vgg')
+train(use_saved_rpn=True, model_name=detection_config.used_model_name)

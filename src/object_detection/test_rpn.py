@@ -1,11 +1,9 @@
 from __future__ import division
-import os
 import cv2
 import numpy as np
 import sys
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
-from sklearn.metrics import log_loss
 
 from utils import data_generators
 from utils import simple_parser
@@ -114,4 +112,4 @@ def test(model_name='vgg'):
             print((x*detection_config.rpn_stride, y*detection_config.rpn_stride, x2*detection_config.rpn_stride, y2*detection_config.rpn_stride))
 
 
-test(model_name='vgg')
+test(model_name=detection_config.used_model_name)

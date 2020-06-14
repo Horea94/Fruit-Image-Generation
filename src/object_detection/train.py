@@ -216,4 +216,4 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
     print('Training complete, exiting.')
 
 
-train(use_saved_rpn=True, use_saved_cls=True, model_name='vgg')
+train(use_saved_rpn=True, use_saved_cls=True, model_name=detection_config.used_model_name)
