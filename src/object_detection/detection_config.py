@@ -31,8 +31,8 @@ img_size = 640
 img_shape = (img_size, img_size, 3)  # height, width, channels
 
 # min/max width and height of images that are used to build the training data for each class
-min_fruit_size = 60
-max_fruit_size = 120
+min_fruit_size = 120
+max_fruit_size = 250
 
 overlap_factor = 0.0
 
@@ -58,7 +58,7 @@ random_rotate = False
 # balanced_classes = True
 
 # anchor box scales
-anchor_box_scales = [32, 64, 96, 128]
+anchor_box_scales = [64, 128, 256]
 # anchor box ratios
 anchor_box_ratios = [[1, 1], [1, 2], [2, 1]]
 num_anchors = len(anchor_box_scales) * len(anchor_box_ratios)

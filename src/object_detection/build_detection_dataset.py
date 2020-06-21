@@ -33,7 +33,6 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
         img_count = index * total_threads + thread_id
         canvas = Image.open(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)]).resize(config.img_shape[:-1]).convert('RGB')
         canvas = enhance_image(canvas)
-        canvas = np.array(canvas)
         mask_canvas = np.array(Image.new(mode='RGB', size=config.img_shape[:-1], color=(0, 0, 0)))
         anchors = []
         fruits_in_image = random.randint(1, 6)
@@ -46,10 +45,17 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
             rotate_angle = random.randint(0, 3) * 90
             fruit_image = Image.open(fruit_image_path).resize((fruit_img_size, fruit_img_size)).rotate(rotate_angle)
             fruit_mask = build_mask(fruit_image)
+            fruit_image = enhance_image(fruit_image)
+            non_empty_cols = np.where(np.amax(fruit_mask, axis=0) > 0)[0]
+            non_empty_rows = np.where(np.amax(fruit_mask, axis=1) > 0)[0]
+            top_most_px = min(non_empty_rows)
+            bottom_most_px = max(non_empty_rows)
+            left_most_px = min(non_empty_cols)
+            right_most_px = max(non_empty_cols)
+            fruit_mask = fruit_mask[top_most_px:bottom_most_px+1, left_most_px:right_most_px+1]
+            fruit_image = fruit_image[top_most_px:bottom_most_px+1, left_most_px:right_most_px+1]
             if not is_binary_mask:
                 fruit_mask = color_mask(fruit_mask, config.color_map[fruit_label_index])
-            fruit_image = enhance_image(fruit_image)
-            fruit_image = np.array(fruit_image)
             add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
         canvas = Image.fromarray(canvas)
         mask_canvas = Image.fromarray(mask_canvas)
@@ -100,7 +106,7 @@ def enhance_image(canvas, sharpness=True, contrast=True, color=True, brightness=
         brightness_enhancer = ImageEnhance.Brightness(canvas)
         factor = random.random() * 0.2 + 0.9
         canvas = brightness_enhancer.enhance(factor=factor)
-    return canvas
+    return np.array(canvas)
 
 
 # TODO: add partial occlusion
