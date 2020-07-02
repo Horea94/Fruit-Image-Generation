@@ -61,7 +61,6 @@ def test(model_name='vgg'):
     img_input = Input(shape=detection_config.input_shape_img)
     roi_input = Input(shape=(detection_config.num_rois, 4))
 
-    input_shape_features = (None, None, 512)
     if model_name == 'vgg':
         nn = vgg
     elif model_name == 'resnet':
@@ -75,7 +74,7 @@ def test(model_name='vgg'):
     helper = CustomModelSaverUtil()
     model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
 
-    feature_map_input = Input(shape=input_shape_features)
+    feature_map_input = Input(shape=nn.get_feature_maps_shape())
 
     # define the base network (resnet here, can be VGG, Inception, etc)
     shared_layers = nn.nn_base(img_input)
@@ -159,13 +158,13 @@ def test(model_name='vgg'):
                 (x1, y1, x2, y2) = new_boxes[jk, :]
                 (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
 
-                cv2.rectangle(img, (real_y1, real_x1), (real_y2, real_x2), (int(detection_config.class_to_color[key][0]), int(detection_config.class_to_color[key][1]), int(detection_config.class_to_color[key][2])), 2)
+                cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2), (int(detection_config.class_to_color[key][0]), int(detection_config.class_to_color[key][1]), int(detection_config.class_to_color[key][2])), 2)
 
                 textLabel = '{}: {}'.format(key, int(100 * new_probs[jk]))
                 all_dets.append((key, 100 * new_probs[jk]))
 
                 (retval, baseLine) = cv2.getTextSize(textLabel, cv2.FONT_HERSHEY_COMPLEX, 0.9, 1)
-                textOrg = (real_y1, real_x1)
+                textOrg = (real_x1, real_y1)
 
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (0, 0, 0), 2)
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)

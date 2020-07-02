@@ -110,9 +110,7 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
                 loss_rpn = model_rpn.train_on_batch(x=X, y=Y)
 
                 P_rpn = model_rpn.predict_on_batch(X)
-                # with eager execution, predict on batch returns one or more eager tensors
-                # further down we need to operate with actual values so we call .numpy() on the tensors
-                R = roi_helpers.rpn_to_roi(P_rpn[0].numpy(), P_rpn[1].numpy(), use_regr=True, overlap_thresh=0.8, max_boxes=300)
+                R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], use_regr=True, overlap_thresh=0.8, max_boxes=300)
                 # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
                 X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data)
 

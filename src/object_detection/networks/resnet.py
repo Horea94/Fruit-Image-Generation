@@ -21,6 +21,8 @@ def get_img_output_length(width, height):
 
     return get_output_length(width), get_output_length(height)
 
+def get_feature_maps_shape():
+    return (None, None, 1024)
 
 def identity_block(input_tensor, kernel_size, filters, stage, block):
     nb_filter1, nb_filter2, nb_filter3 = filters
@@ -98,7 +100,7 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2))
     return x
 
 
-def conv_block_td(input_tensor, kernel_size, filters, stage, block, strides=(2, 2)):
+def conv_block_td(input_tensor, kernel_size, filters, stage, block, input_shape, strides=(2, 2)):
     # conv block time distributed
 
     nb_filter1, nb_filter2, nb_filter3 = filters
@@ -107,7 +109,7 @@ def conv_block_td(input_tensor, kernel_size, filters, stage, block, strides=(2, 
     conv_name_base = 'res' + str(stage) + block + '_branch'
     bn_name_base = 'bn' + str(stage) + block + '_branch'
 
-    x = TimeDistributed(Convolution2D(nb_filter1, (1, 1), strides=strides, kernel_initializer='normal'), name=conv_name_base + '2a')(input_tensor)
+    x = TimeDistributed(Convolution2D(nb_filter1, (1, 1), strides=strides, kernel_initializer='normal'), input_shape=input_shape, name=conv_name_base + '2a')(input_tensor)
     x = TimeDistributed(BatchNormalization(axis=bn_axis), name=bn_name_base + '2a')(x)
     x = Activation('relu')(x)
 
@@ -166,10 +168,10 @@ def nn_base(input_tensor=None):
     return x
 
 
-def classifier_layers(x):
+def classifier_layers(x, input_shape):
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
     # (hence a smaller stride in the region that follows the ROI pool)
-    x = conv_block_td(x, 3, [512, 512, 2048], stage=5, block='a', strides=(2, 2))
+    x = conv_block_td(x, 3, [512, 512, 2048], stage=5, block='a', input_shape=input_shape, strides=(2, 2))
 
     x = identity_block_td(x, 3, [512, 512, 2048], stage=5, block='b')
     x = identity_block_td(x, 3, [512, 512, 2048], stage=5, block='c')
@@ -190,16 +192,11 @@ def rpn(base_layers, num_anchors):
 def classifier(base_layers, input_rois, num_rois, nb_classes=detection_config.num_classes):
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
-    pooling_regions = 7
-    input_shape = (num_rois, 7, 7, 1024)
+    pooling_regions = 14
+    input_shape = (num_rois, 14, 14, 1024)
 
     x = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
-
-    # pool inputs to save memory.
-    # x = TimeDistributed(Convolution2D(1024, (3, 3), name='lastconv', padding="same"))(out_roi_pool)
-    # x = Activation('relu')(x)
-
-    x = classifier_layers(x)
+    x = classifier_layers(x, input_shape=input_shape)
     out = TimeDistributed(Flatten(name='flatten'))(x)
     out = TimeDistributed(Dense(4096, activation='relu', name='fc1'))(out)
     out = TimeDistributed(Dropout(0.5))(out)

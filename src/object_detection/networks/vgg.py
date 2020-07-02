@@ -16,6 +16,10 @@ def get_img_output_length(width, height):
     return get_output_length(width), get_output_length(height)
 
 
+def get_feature_maps_shape():
+    return (None, None, 512)
+
+
 def nn_base(input_tensor=None):
     input_shape = (None, None, 3)
 

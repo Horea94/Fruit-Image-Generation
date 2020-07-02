@@ -28,7 +28,7 @@ color_map = {0: (0, 0, 0),
              1: (255, 255, 255)}
 
 img_size = 640
-img_shape = (img_size, img_size, 3)  # height, width, channels
+img_shape = (640, 720, 3)  # height, width, channels
 
 # min/max width and height of images that are used to build the training data for each class
 min_fruit_size = 120
@@ -58,9 +58,9 @@ random_rotate = False
 # balanced_classes = True
 
 # anchor box scales
-anchor_box_scales = [64, 128, 256]
+anchor_box_scales = [64, 128, 160]
 # anchor box ratios
-anchor_box_ratios = [[1, 1], [1, 2], [2, 1]]
+anchor_box_ratios = [[1, 1], [1, 1.5], [1.5, 1], [1.5, 1.5]]
 num_anchors = len(anchor_box_scales) * len(anchor_box_ratios)
 # number of ROIs at once
 # this should be determined based on the average number of objects per image as the training algorithm will try to feed roughly half positive and half negative samples

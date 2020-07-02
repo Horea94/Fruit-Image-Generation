@@ -5,8 +5,9 @@ import threading
 import numpy as np
 import detection_config as config
 import random
-from PIL import Image, ImageEnhance, ImageDraw, ImageMath, ImageFilter
 import xml.etree.ElementTree as ep
+from PIL import Image, ImageEnhance, ImageDraw, ImageMath, ImageFilter
+from shapely.geometry import Polygon
 
 
 def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True):
@@ -31,12 +32,13 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
 
     for index in range(limit):
         img_count = index * total_threads + thread_id
-        canvas = Image.open(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)]).resize(config.img_shape[:-1]).convert('RGB')
+        # reverse width and height positions since PIL uses them as (width, height) and opencv, which is used for training uses them as (height, width)
+        canvas = Image.open(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)]).resize((config.img_shape[1], config.img_shape[0])).convert('RGB')
         canvas = enhance_image(canvas)
-        mask_canvas = np.array(Image.new(mode='RGB', size=config.img_shape[:-1], color=(0, 0, 0)))
+        mask_canvas = np.array(Image.new(mode='RGB', size=(config.img_shape[1], config.img_shape[0]), color=(0, 0, 0)))
         anchors = []
-        fruits_in_image = random.randint(1, 6)
-        # fruits_in_image = 1
+        # fruits_in_image = random.randint(1, 6)
+        fruits_in_image = 5
         for i in range(fruits_in_image):
             fruit_label_index = random.randint(0, len(config.fruit_labels) - 2)
             fruit_label = config.fruit_labels[fruit_label_index]
@@ -70,7 +72,7 @@ def write_annotation_to_file(anchors, img_count, simple_format=True):
         with open(config.annotation_folder + str(img_count), 'w') as f:
             f.write(str(img_count) + '.png\n')
             for anchor in anchors:
-                f.write(str(anchor[0][0]) + ',' + str(anchor[0][1]) + ',' + str(anchor[3][0]) + ',' + str(anchor[3][1]) + ',' + anchor[4] + '\n')
+                f.write(str(anchor[0][1]) + ',' + str(anchor[0][0]) + ',' + str(anchor[3][1]) + ',' + str(anchor[3][0]) + ',' + anchor[4] + '\n')
     else:
         root = ep.Element('annotation')
         ep.SubElement(root, 'path').text = config.image_folder + str(img_count) + '.png'
@@ -78,10 +80,10 @@ def write_annotation_to_file(anchors, img_count, simple_format=True):
             obj = ep.SubElement(root, 'object')
             ep.SubElement(obj, 'name').text = anchor[4]
             bndbox = ep.SubElement(obj, 'bndbox')
-            ep.SubElement(bndbox, 'xmin').text = str(anchor[0][0])
-            ep.SubElement(bndbox, 'xmax').text = str(anchor[3][0])
-            ep.SubElement(bndbox, 'ymin').text = str(anchor[0][1])
-            ep.SubElement(bndbox, 'ymax').text = str(anchor[3][1])
+            ep.SubElement(bndbox, 'xmin').text = str(anchor[0][1])
+            ep.SubElement(bndbox, 'xmax').text = str(anchor[3][1])
+            ep.SubElement(bndbox, 'ymin').text = str(anchor[0][0])
+            ep.SubElement(bndbox, 'ymax').text = str(anchor[3][0])
         tree = ep.ElementTree(root)
         tree.write(file_or_filename=config.annotation_folder + str(img_count) + '.xml')
 
@@ -130,8 +132,7 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
         # if no free space is found, the image is not added
         x = random.randint(min_x // 2, max_x)
         y = random.randint(min_y // 2, max_y)
-        done = not is_overlap_between_new_image_and_old_images(((x, y), (x, y + fruit_image.shape[1]), (x + fruit_image.shape[0], y), (x + fruit_image.shape[0], y + fruit_image.shape[1])),
-                                                               anchors)
+        done = not is_overlap_between_new_image_and_old_images(((x, y), (x, y + fruit_image.shape[1]), (x + fruit_image.shape[0], y), (x + fruit_image.shape[0], y + fruit_image.shape[1])), anchors)
         attempts -= 1
     if done:
         for i in range(fruit_image.shape[0]):
@@ -151,43 +152,43 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
 
 def is_overlap_between_new_image_and_old_images(img_coordinates, other_images):
     for old_img_coords in other_images:
-        if is_src_img_inside_dest_img(img_coordinates, old_img_coords) or is_src_img_inside_dest_img(old_img_coords, img_coordinates):
+        if is_overlap_between_images(img_coordinates, old_img_coords):
             return True
     return False
 
 
-def is_src_img_inside_dest_img(src_img_coordinates, dest_img_coordinates):
+def is_overlap_between_images(src_img_coordinates, dest_img_coordinates):
     upper_left_point = src_img_coordinates[0]
     upper_right_point = src_img_coordinates[1]
     lower_left_point = src_img_coordinates[2]
     lower_right_point = src_img_coordinates[3]
 
-    height_upper_bound = dest_img_coordinates[0][0]  # as the upper left corner of an image is (0, 0), the upper bound will be smaller than the lower bound
-    height_lower_bound = dest_img_coordinates[3][0]
-    width_left_bound = dest_img_coordinates[0][1]
-    width_right_bound = dest_img_coordinates[3][1]
+    upper_left_point_dest = dest_img_coordinates[0]
+    upper_right_point_dest = dest_img_coordinates[1]
+    lower_left_point_dest = dest_img_coordinates[2]
+    lower_right_point_dest = dest_img_coordinates[3]
 
-    # set the coordinates lower for each image to allow some degree of overlap
+    # adjust the coordinates of each image using a factor to allow some degree of overlap between them
     # source image
     factor = config.overlap_factor
-    src_img_height = abs(upper_left_point[0] - lower_left_point[0])
-    src_img_width = abs(upper_left_point[1] - upper_right_point[1])
-    upper_left_point = (upper_left_point[0] + math.floor(src_img_height * factor), upper_left_point[1] + math.floor(src_img_width * factor))
-    upper_right_point = (upper_right_point[0] + math.floor(src_img_height * factor), upper_right_point[1] - math.floor(src_img_width * factor))
-    lower_left_point = (lower_left_point[0] - math.floor(src_img_height * factor), lower_left_point[1] + math.floor(src_img_width * factor))
-    lower_right_point = (lower_right_point[0] - math.floor(src_img_height * factor), lower_right_point[1] - math.floor(src_img_width * factor))
+    lower_left_point, lower_right_point, upper_left_point, upper_right_point = adjust_bounds_for_overlap(factor, upper_left_point, upper_right_point, lower_left_point, lower_right_point)
     # destination image
-    dest_img_height = abs(height_upper_bound - height_lower_bound)
-    dest_img_width = abs(width_right_bound - width_left_bound)
-    height_lower_bound -= math.floor(dest_img_height * factor)
-    height_upper_bound += math.floor(dest_img_height * factor)
-    width_left_bound += math.floor(dest_img_width * factor)
-    width_right_bound -= math.floor(dest_img_width * factor)
+    lower_left_point_dest, lower_right_point_dest, upper_left_point_dest, upper_right_point_dest = adjust_bounds_for_overlap(factor, upper_left_point_dest, upper_right_point_dest, lower_left_point_dest, lower_right_point_dest)
 
-    return ((height_upper_bound <= upper_left_point[0] <= height_lower_bound and width_left_bound <= upper_left_point[1] <= width_right_bound) or
-            (height_upper_bound <= upper_right_point[0] <= height_lower_bound and width_left_bound <= upper_right_point[1] <= width_right_bound) or
-            (height_upper_bound <= lower_left_point[0] <= height_lower_bound and width_left_bound <= lower_left_point[1] <= width_right_bound) or
-            (height_upper_bound <= lower_right_point[0] <= height_lower_bound and width_left_bound <= lower_right_point[1] <= width_right_bound))
+    p1 = Polygon([upper_left_point, upper_right_point, lower_right_point, lower_left_point, upper_left_point])
+    p2 = Polygon([upper_left_point_dest, upper_right_point_dest, lower_right_point_dest, lower_left_point_dest, upper_left_point_dest])
+    return p1.intersects(p2)
+
+
+def adjust_bounds_for_overlap(factor, upper_left_point, upper_right_point, lower_left_point, lower_right_point):
+    src_img_width = abs(upper_left_point[0] - lower_left_point[0])
+    src_img_height = abs(upper_left_point[1] - upper_right_point[1])
+    # as the upper left corner of an image is (0, 0), the upper bound will be smaller than the lower bound
+    upper_left_point = (upper_left_point[0] + math.floor(src_img_width * factor), upper_left_point[1] + math.floor(src_img_height * factor))
+    upper_right_point = (upper_right_point[0] + math.floor(src_img_width * factor), upper_right_point[1] - math.floor(src_img_height * factor))
+    lower_left_point = (lower_left_point[0] - math.floor(src_img_width * factor), lower_left_point[1] + math.floor(src_img_height * factor))
+    lower_right_point = (lower_right_point[0] - math.floor(src_img_width * factor), lower_right_point[1] - math.floor(src_img_height * factor))
+    return lower_left_point, lower_right_point, upper_left_point, upper_right_point
 
 
 def build_mask(fruit_image, threshold=config.mask_threshold):
