@@ -43,7 +43,7 @@ mask_threshold = 246  # threshold used for generating masks
 dataset_generation_limit = 1000
 # number of threads that build the dataset
 # the load is balanced among the threads
-total_threads = 1
+total_threads = 10
 
 ################################# Training Parameters #################################
 batch_size = 3
@@ -58,9 +58,10 @@ random_rotate = False
 # balanced_classes = True
 
 # anchor box scales
-anchor_box_scales = [64, 128, 160]
+anchor_box_scales = [64]
 # anchor box ratios
-anchor_box_ratios = [[1, 1], [1, 1.5], [1.5, 1], [1.5, 1.5]]
+anchor_box_ratios = [[2, 2], [2.5, 2.5], [3, 3], [3.5, 3.5], [4, 4], [1, 4], [4, 1], [1.5, 2.5], [2.5, 1.5], [1.5, 3], [3, 1.5], [1.5, 3.5], [3.5, 1.5], [1.5, 4], [4, 1.5], [2, 2.5], [2.5, 2], [2, 3], [3, 2], [2, 3.5], [3.5, 2], [2, 4], [4, 2],
+                     [2.5, 3], [3, 2.5], [2.5, 3.5], [3.5, 2.5], [2.5, 4], [4, 2.5], [3, 3.5], [3.5, 3], [3, 4], [4, 3], [3.5, 4], [4, 3.5]]
 num_anchors = len(anchor_box_scales) * len(anchor_box_ratios)
 # number of ROIs at once
 # this should be determined based on the average number of objects per image as the training algorithm will try to feed roughly half positive and half negative samples

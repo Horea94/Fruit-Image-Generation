@@ -1,19 +1,23 @@
 import math
 import os
+import cv2
 import threading
-
 import numpy as np
-import detection_config as config
 import random
 import xml.etree.ElementTree as ep
-from PIL import Image, ImageEnhance, ImageDraw, ImageMath, ImageFilter
+import detection_config as config
 from shapely.geometry import Polygon
+from utils.DatasetStats import DatasetStats
+
+stats = DatasetStats()
 
 
 def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True):
+    global stats
+    local_stats = DatasetStats()
     bkg_image_paths = [config.background_folder + x for x in os.listdir(config.background_folder)]
     labels_to_images = {}
-
+    rotation_angles = [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
     mutex.acquire()
     try:
         if not os.path.exists(config.image_folder):
@@ -32,10 +36,10 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
 
     for index in range(limit):
         img_count = index * total_threads + thread_id
-        # reverse width and height positions since PIL uses them as (width, height) and opencv, which is used for training uses them as (height, width)
-        canvas = Image.open(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)]).resize((config.img_shape[1], config.img_shape[0])).convert('RGB')
+        canvas = cv2.imread(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)])
+        canvas = cv2.resize(canvas, (config.img_shape[1], config.img_shape[0]))
         canvas = enhance_image(canvas)
-        mask_canvas = np.array(Image.new(mode='RGB', size=(config.img_shape[1], config.img_shape[0]), color=(0, 0, 0)))
+        mask_canvas = np.zeros(config.img_shape, dtype=np.uint8)
         anchors = []
         # fruits_in_image = random.randint(1, 6)
         fruits_in_image = 5
@@ -44,10 +48,12 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
             fruit_label = config.fruit_labels[fruit_label_index]
             fruit_image_path = labels_to_images[fruit_label][random.randint(0, len(labels_to_images[fruit_label]) - 1)]
             fruit_img_size = random.randint(config.min_fruit_size, config.max_fruit_size)
-            rotate_angle = random.randint(0, 3) * 90
-            fruit_image = Image.open(fruit_image_path).resize((fruit_img_size, fruit_img_size)).rotate(rotate_angle)
+            rotate_index = random.randint(0, 3)
+            fruit_image = cv2.imread(fruit_image_path)
+            fruit_image = cv2.resize(fruit_image, (fruit_img_size, fruit_img_size))
+            if rotate_index < 3:
+                fruit_image = cv2.rotate(fruit_image, rotateCode=rotation_angles[rotate_index])
             fruit_mask = build_mask(fruit_image)
-            fruit_image = enhance_image(fruit_image)
             non_empty_cols = np.where(np.amax(fruit_mask, axis=0) > 0)[0]
             non_empty_rows = np.where(np.amax(fruit_mask, axis=1) > 0)[0]
             top_most_px = min(non_empty_rows)
@@ -56,15 +62,46 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
             right_most_px = max(non_empty_cols)
             fruit_mask = fruit_mask[top_most_px:bottom_most_px+1, left_most_px:right_most_px+1]
             fruit_image = fruit_image[top_most_px:bottom_most_px+1, left_most_px:right_most_px+1]
+            w, h = fruit_image.shape[:2]
+            if min(w, h) < config.min_fruit_size or max(w, h) > config.max_fruit_size:
+                ratio = min(config.min_fruit_size / min(w, h), config.max_fruit_size / max(w, h))
+                fruit_image = cv2.resize(fruit_image, (int(h * ratio), int(w * ratio)))
+                fruit_mask = build_mask(fruit_image)
+            fruit_image = enhance_image(fruit_image)
             if not is_binary_mask:
                 fruit_mask = color_mask(fruit_mask, config.color_map[fruit_label_index])
-            add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
-        canvas = Image.fromarray(canvas)
-        mask_canvas = Image.fromarray(mask_canvas)
-        canvas.save(config.image_folder + str(img_count) + '.png')
-        mask_canvas.save(config.mask_folder + str(img_count) + '.png')
+            successfully_added_img, w, h = add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
+            if successfully_added_img:
+                update_stats(local_stats, h, w)
+        cv2.imwrite(config.image_folder + str(img_count) + '.png', canvas)
+        cv2.imwrite(config.mask_folder + str(img_count) + '.png', mask_canvas)
         write_annotation_to_file(anchors, img_count, simple_format=simple_annotation_format)
         print("Thread %d saved image %d.png" % (thread_id, img_count))
+    mutex.acquire()
+    if local_stats.minimum_area < stats.minimum_area:
+        stats.minimum_area_img_w = local_stats.minimum_area_img_w
+        stats.minimum_area_img_h = local_stats.minimum_area_img_h
+        stats.minimum_area = local_stats.minimum_area
+    if local_stats.minimum_height_img_h < stats.minimum_height_img_h:
+        stats.minimum_height_img_h = local_stats.minimum_height_img_h
+        stats.minimum_height_img_w = local_stats.minimum_height_img_w
+    if local_stats.minimum_width_img_w < stats.minimum_width_img_w:
+        stats.minimum_width_img_h = local_stats.minimum_width_img_h
+        stats.minimum_width_img_w = local_stats.minimum_width_img_w
+    mutex.release()
+
+
+def update_stats(stats_param, h, w):
+    if stats_param.minimum_area > w * h:
+        stats_param.minimum_area_img_h = h
+        stats_param.minimum_area_img_w = w
+        stats_param.minimum_area = w * h
+    if stats_param.minimum_height_img_h > h:
+        stats_param.minimum_height_img_h = h
+        stats_param.minimum_height_img_w = w
+    if stats_param.minimum_width_img_w > w:
+        stats_param.minimum_width_img_h = h
+        stats_param.minimum_width_img_w = w
 
 
 def write_annotation_to_file(anchors, img_count, simple_format=True):
@@ -88,27 +125,15 @@ def write_annotation_to_file(anchors, img_count, simple_format=True):
         tree.write(file_or_filename=config.annotation_folder + str(img_count) + '.xml')
 
 
-def enhance_image(canvas, sharpness=True, contrast=True, color=True, brightness=True):
-    if sharpness:
-        sharpness_enhancer = ImageEnhance.Sharpness(canvas)
-        factor = random.random() + 1.0
-        canvas = sharpness_enhancer.enhance(factor=factor)
-
+def enhance_image(canvas, contrast=True, brightness=True):
+    brightness_factor = 0
+    contrast_factor = 1.0
     if contrast:
-        contrast_enhancer = ImageEnhance.Contrast(canvas)
-        factor = random.random() * 0.4 + 0.8
-        canvas = contrast_enhancer.enhance(factor=factor)
-
-    if color:
-        color_enhancer = ImageEnhance.Color(canvas)
-        factor = random.random() * 0.4 + 0.8
-        canvas = color_enhancer.enhance(factor=factor)
-
+        contrast_factor = random.random() * 1.0 + 0.5
     if brightness:
-        brightness_enhancer = ImageEnhance.Brightness(canvas)
-        factor = random.random() * 0.2 + 0.9
-        canvas = brightness_enhancer.enhance(factor=factor)
-    return np.array(canvas)
+        brightness_factor = random.random() * 1.0 + 0.5
+    canvas = cv2.convertScaleAbs(canvas, alpha=contrast_factor, beta=brightness_factor)
+    return canvas
 
 
 # TODO: add partial occlusion
@@ -147,7 +172,7 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
         upper_right = (min(x + fruit_image.shape[0], canvas.shape[0] - 1), max(y, 0))
         lower_right = (min(x + fruit_image.shape[0], canvas.shape[0] - 1), min(y + fruit_image.shape[1], canvas.shape[1] - 1))
         anchors.append((upper_left, lower_left, upper_right, lower_right, fruit_label))
-    return done
+    return done, fruit_image.shape[0], fruit_image.shape[1]
 
 
 def is_overlap_between_new_image_and_old_images(img_coordinates, other_images):
@@ -192,20 +217,14 @@ def adjust_bounds_for_overlap(factor, upper_left_point, upper_right_point, lower
 
 
 def build_mask(fruit_image, threshold=config.mask_threshold):
-    fn = lambda x: 0 if x > threshold else 255
-    inv_fn = lambda x: 0 if x == 255 else 255
-    img = fruit_image.convert('L').point(fn, mode='1')
-    img_copy = img.copy()
-    x, y = fruit_image.size
-    ImageDraw.floodfill(img_copy, xy=(0, 0), value=255)
-    ImageDraw.floodfill(img_copy, xy=(x-1, 0), value=255)
-    ImageDraw.floodfill(img_copy, xy=(0, y-1), value=255)
-    ImageDraw.floodfill(img_copy, xy=(x-1, y-1), value=255)
-    img_copy = img_copy.point(inv_fn, mode='1')
-    img = ImageMath.eval("a | b", a=img, b=img_copy)
-    img = img.convert('RGB')
-    img = img.filter(ImageFilter.MinFilter(3))
-    return np.array(img)
+    img = cv2.cvtColor(fruit_image, cv2.COLOR_BGR2GRAY)
+    _, img = cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY_INV)
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    kernel = np.ones((3, 3), np.uint8)
+    img = cv2.erode(img, kernel, iterations=2)
+    img = cv2.dilate(img, kernel, iterations=2)
+    img = cv2.erode(img, kernel, iterations=2)
+    return img
 
 
 def color_mask(fruit_mask, fruit_mask_color):
@@ -229,3 +248,8 @@ if __name__ == "__main__":
 
     for thrd in thrd_list:
         thrd.join()
+
+    # report the image with the smallest width, the image with the smallest height and the image with the smallest surface area
+    print("Image with the smallest height (w, h): (%d, %d)" % (stats.minimum_height_img_w, stats.minimum_height_img_h))
+    print("Image with the smallest width (w, h): (%d, %d)" % (stats.minimum_width_img_w, stats.minimum_width_img_h))
+    print("Image with the smallest area (w, h): (%d, %d)" % (stats.minimum_area_img_w, stats.minimum_area_img_h))

@@ -203,10 +203,11 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
     # regions. We also limit it to 256 regions.
     num_regions = 256
 
-    if len(pos_locs[0]) > num_regions / 2:
-        val_locs = random.sample(range(len(pos_locs[0])), len(pos_locs[0]) - num_regions / 2)
+    # use integer division as random.sample does not cast the result of num_regions / 2 to int, resulting in an error
+    if len(pos_locs[0]) > num_regions // 2:
+        val_locs = random.sample(range(len(pos_locs[0])), len(pos_locs[0]) - num_regions // 2)
         y_is_box_valid[0, pos_locs[0][val_locs], pos_locs[1][val_locs], pos_locs[2][val_locs]] = 0
-        num_pos = num_regions / 2
+        num_pos = num_regions // 2
 
     if len(neg_locs[0]) + num_pos > num_regions:
         val_locs = random.sample(range(len(neg_locs[0])), len(neg_locs[0]) - num_pos)
@@ -279,7 +280,8 @@ class CustomDataGenerator(Sequence):
             height, width, resized_height, resized_width, img_data_aug, x_img = augment_and_resize_image(self.all_imgs[index], augment=self.augment)
             try:
                 y_rpn_cls, y_rpn_regr = calc_rpn(img_data_aug, width, height, resized_width, resized_height, self.img_length_calc_function)
-            except:
+            except Exception as e:
+                print("Error in generator: " + str(e))
                 continue
             x_img, y_rpn_cls, y_rpn_regr = arrange_dims(x_img, y_rpn_cls, y_rpn_regr)
             x_imgs.append(x_img)

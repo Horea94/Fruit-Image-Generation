@@ -110,7 +110,7 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
                 loss_rpn = model_rpn.train_on_batch(x=X, y=Y)
 
                 P_rpn = model_rpn.predict_on_batch(X)
-                R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], use_regr=True, overlap_thresh=0.8, max_boxes=300)
+                R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], use_regr=True, max_boxes=300, overlap_thresh=0.8)
                 # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
                 X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data)
 
@@ -136,7 +136,6 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
                 if detection_config.num_rois > 1:
                     if len(pos_samples) < detection_config.num_rois // 2:
                         selected_pos_samples = pos_samples.tolist()
-                        # selected_pos_samples = np.random.choice(pos_samples, detection_config.num_rois // 2, replace=True).tolist()
                     else:
                         selected_pos_samples = np.random.choice(pos_samples, detection_config.num_rois // 2, replace=False).tolist()
                     try:
