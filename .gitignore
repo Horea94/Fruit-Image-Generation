@@ -7,6 +7,8 @@ src/image_classification_tf_1.8.0/data
 Dataset/*
 src/segmentation/models
 src/object_detection/models
+src/object_detection/labels.txt
+src/object_detection/detection_config.py
 Test
 Training
 test-multiple_fruits

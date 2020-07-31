@@ -1,5 +1,6 @@
 import math
 import os
+import glob
 import cv2
 import threading
 import numpy as np
@@ -31,8 +32,7 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
 
     for i in range(0, len(config.fruit_labels) - 1):
         label = config.fruit_labels[i]
-        img_paths = [config.dataset_train_folder + label + '/' + x for x in os.listdir(config.dataset_train_folder + label)]
-        labels_to_images[label] = img_paths
+        labels_to_images[label] = glob.glob(config.dataset_train_folder + label + '/*')
 
     for index in range(limit):
         img_count = index * total_threads + thread_id
@@ -42,7 +42,7 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
         mask_canvas = np.zeros(config.img_shape, dtype=np.uint8)
         anchors = []
         # fruits_in_image = random.randint(1, 6)
-        fruits_in_image = 5
+        fruits_in_image = 20
         for i in range(fruits_in_image):
             fruit_label_index = random.randint(0, len(config.fruit_labels) - 2)
             fruit_label = config.fruit_labels[fruit_label_index]
@@ -60,14 +60,20 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
             bottom_most_px = max(non_empty_rows)
             left_most_px = min(non_empty_cols)
             right_most_px = max(non_empty_cols)
-            fruit_mask = fruit_mask[top_most_px:bottom_most_px+1, left_most_px:right_most_px+1]
-            fruit_image = fruit_image[top_most_px:bottom_most_px+1, left_most_px:right_most_px+1]
+            fruit_mask = fruit_mask[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
+            fruit_image = fruit_image[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
             w, h = fruit_image.shape[:2]
             if min(w, h) < config.min_fruit_size or max(w, h) > config.max_fruit_size:
                 ratio = min(config.min_fruit_size / min(w, h), config.max_fruit_size / max(w, h))
                 fruit_image = cv2.resize(fruit_image, (int(h * ratio), int(w * ratio)))
                 fruit_mask = build_mask(fruit_image)
             fruit_image = enhance_image(fruit_image)
+            # pad the image by a percentage so the resulting bounding box is slightly bigger than the fruit
+            w, h = fruit_image.shape[:2]
+            fruit_image = cv2.copyMakeBorder(fruit_image, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
+                                             right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
+            fruit_mask = cv2.copyMakeBorder(fruit_mask, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
+                                             right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
             if not is_binary_mask:
                 fruit_mask = color_mask(fruit_mask, config.color_map[fruit_label_index])
             successfully_added_img, w, h = add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
@@ -198,7 +204,8 @@ def is_overlap_between_images(src_img_coordinates, dest_img_coordinates):
     factor = config.overlap_factor
     lower_left_point, lower_right_point, upper_left_point, upper_right_point = adjust_bounds_for_overlap(factor, upper_left_point, upper_right_point, lower_left_point, lower_right_point)
     # destination image
-    lower_left_point_dest, lower_right_point_dest, upper_left_point_dest, upper_right_point_dest = adjust_bounds_for_overlap(factor, upper_left_point_dest, upper_right_point_dest, lower_left_point_dest, lower_right_point_dest)
+    lower_left_point_dest, lower_right_point_dest, upper_left_point_dest, upper_right_point_dest = adjust_bounds_for_overlap(factor, upper_left_point_dest, upper_right_point_dest, lower_left_point_dest,
+                                                                                                                             lower_right_point_dest)
 
     p1 = Polygon([upper_left_point, upper_right_point, lower_right_point, lower_left_point, upper_left_point])
     p2 = Polygon([upper_left_point_dest, upper_right_point_dest, lower_right_point_dest, lower_left_point_dest, upper_left_point_dest])

@@ -27,26 +27,28 @@ class_to_color = {fruit_labels[v]: np.random.randint(0, 255, 3) for v in range(n
 color_map = {0: (0, 0, 0),
              1: (255, 255, 255)}
 
-img_size = 640
-img_shape = (640, 720, 3)  # height, width, channels
+img_size = 768
+img_shape = (768, 1024, 3)  # height, width, channels
 
 # min/max width and height of images that are used to build the training data for each class
 min_fruit_size = 120
-max_fruit_size = 250
+max_fruit_size = 500
 
 overlap_factor = 0.0
+bounding_box_padding = 0.05  # percentage indicating how much extra space should be added to the
+# bounding box; this is done to enlarge the bounding box surrounding a fruit so it includes background as well
 
 mask_threshold = 246  # threshold used for generating masks
 # number of images to generate in the segmentation dataset
 # for each generated image, the corresponding mask is also generated
 # so the total number of generated images is 2 * dataset_generation_limit
-dataset_generation_limit = 1000
+dataset_generation_limit = 300
 # number of threads that build the dataset
 # the load is balanced among the threads
-total_threads = 10
+total_threads = 5
 
 ################################# Training Parameters #################################
-batch_size = 3
+batch_size = 2
 epochs = 200
 input_shape_img = (None, None, 3)  # height, width, channels
 
@@ -58,10 +60,9 @@ random_rotate = False
 # balanced_classes = True
 
 # anchor box scales
-anchor_box_scales = [64]
+anchor_box_scales = [128, 256, 512]
 # anchor box ratios
-anchor_box_ratios = [[2, 2], [2.5, 2.5], [3, 3], [3.5, 3.5], [4, 4], [1, 4], [4, 1], [1.5, 2.5], [2.5, 1.5], [1.5, 3], [3, 1.5], [1.5, 3.5], [3.5, 1.5], [1.5, 4], [4, 1.5], [2, 2.5], [2.5, 2], [2, 3], [3, 2], [2, 3.5], [3.5, 2], [2, 4], [4, 2],
-                     [2.5, 3], [3, 2.5], [2.5, 3.5], [3.5, 2.5], [2.5, 4], [4, 2.5], [3, 3.5], [3.5, 3], [3, 4], [4, 3], [3.5, 4], [4, 3.5]]
+anchor_box_ratios = [[1, 1], [2, 1], [1, 2]]
 num_anchors = len(anchor_box_scales) * len(anchor_box_ratios)
 # number of ROIs at once
 # this should be determined based on the average number of objects per image as the training algorithm will try to feed roughly half positive and half negative samples
@@ -84,9 +85,9 @@ classifier_min_overlap = 0.3
 classifier_max_overlap = 0.7
 
 # learning rates for rpn and classifier
-initial_rpn_lr = 1e-1
+initial_rpn_lr = 1.0
 min_rpn_lr = 1e-6
-initial_cls_lr = 1e-1
+initial_cls_lr = 1.0
 min_cls_lr = 1e-6
 
 used_model_name = 'resnet'

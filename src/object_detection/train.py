@@ -167,7 +167,7 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
                 iter_num += 1
 
                 progbar.update(iter_num, [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
-                                          ('detector_cls', np.mean(losses[:iter_num, 2])), ('detector_regr', np.mean(losses[:iter_num, 3])),
+                                          ('classifier_cls', np.mean(losses[:iter_num, 2])), ('classifier_regr', np.mean(losses[:iter_num, 3])),
                                           ("average number of objects", len(selected_pos_samples))])
 
                 if iter_num == epoch_length:
@@ -185,10 +185,10 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
 
                     print('Mean number of bounding boxes from RPN overlapping ground truth boxes: %f' % mean_overlapping_bboxes)
                     print('Classifier accuracy for bounding boxes from RPN: %f ' % class_acc)
-                    print('Loss RPN classifier: %f' % loss_rpn_cls)
-                    print('Loss RPN regression: %f' % loss_rpn_regr)
-                    print('Loss Detector classifier: %f' % loss_class_cls)
-                    print('Loss Detector regression: %f' % loss_class_regr)
+                    print('Loss RPN cls: %f' % loss_rpn_cls)
+                    print('Loss RPN regr: %f' % loss_rpn_regr)
+                    print('Loss Classifier cls: %f' % loss_class_cls)
+                    print('Loss Classifier regr: %f' % loss_class_regr)
                     print('Elapsed time: %f' % (time.time() - start_time))
 
                     curr_rpn_loss = loss_rpn_cls + loss_rpn_regr
@@ -203,6 +203,8 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
                         helper.save_model_weights(model_all, model_path)
                         helper.save_loss(curr_rpn_loss, rpn_loss_path)
                         helper.save_loss(curr_cls_loss, cls_loss_path)
+                    else:
+                        print('Total loss for model did not improve from %f' % (best_rpn_loss + best_cls_loss))
 
                     break
 

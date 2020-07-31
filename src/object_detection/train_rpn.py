@@ -39,8 +39,8 @@ def train(use_saved_rpn=False, model_name='vgg'):
     helper = CustomModelSaverUtil()
     best_loss = np.Inf
 
-    data_gen_train = data_generators.CustomDataGenerator(train_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_shape, augment=True, shuffle=True)
-    data_gen_val = data_generators.CustomDataGenerator(val_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, image_dimensions=detection_config.img_shape, augment=False, shuffle=False)
+    data_gen_train = data_generators.CustomDataGenerator(train_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, augment=True, shuffle=True)
+    data_gen_val = data_generators.CustomDataGenerator(val_imgs, nn.get_img_output_length, batch_size=detection_config.batch_size, augment=False, shuffle=False)
 
     img_input = Input(shape=detection_config.input_shape_img, dtype='float32')
 

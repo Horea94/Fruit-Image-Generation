@@ -247,11 +247,10 @@ def get_anchor_gt(all_img_data, img_length_calc_function, augment=True, shuffle=
 
 
 class CustomDataGenerator(Sequence):
-    def __init__(self, all_imgs, img_length_calc_function, batch_size=5, image_dimensions=detection_config.img_shape, augment=True, shuffle=True):
+    def __init__(self, all_imgs, img_length_calc_function, batch_size=5, augment=True, shuffle=True):
         self.all_imgs = all_imgs
         self.indexes = np.arange(len(self.all_imgs))
         self.img_length_calc_function = img_length_calc_function
-        self.dim = image_dimensions  # image dimensions
         self.batch_size = batch_size  # batch size
         self.shuffle = shuffle  # shuffle bool
         self.augment = augment  # augment data bool
@@ -294,7 +293,7 @@ class CustomDataGenerator(Sequence):
         #    to
         #    ['...']
         x_imgs = np.array(x_imgs)
-        x_imgs = np.reshape(x_imgs, (x_imgs.shape[0],) + self.dim)
+        x_imgs = np.reshape(x_imgs, (x_imgs.shape[0],) + x_imgs.shape[2:])
         y_rpn_cls_targets = np.array(y_rpn_cls_targets)
         y_rpn_regr_targets = np.array(y_rpn_regr_targets)
         y_rpn_cls_targets = np.reshape(y_rpn_cls_targets, (y_rpn_cls_targets.shape[0],) + y_rpn_cls_targets.shape[2:])
