@@ -1,6 +1,6 @@
 # Fruit-Experimental: An extension to the networks from Fruits-360 repository #
 
-The code here relies on the images from the Fruits-360 repository so you will need to download both.
+The code here relies on the images from the [Fruits-360](https://github.com/Horea94/Fruit-Images-Dataset) repository so you will need to download both.
 I recommend creating soft links to the Training and Test folders from the Fruits-360 repo.
 From the Fruit-Experimental folder, open a command line or terminal and do:
 
@@ -8,6 +8,12 @@ mklink /D Training "path-to-Fruits-360/Training"
 mklink /D Test "path-to-Fruits-360/Test"
 
 Where "path-to-Fruits-360" is the absolute or relative path to the Fruits-360 folder, which you should have after downloading the Fruits-360 repo.
+
+# TensorFlow 2.0 required
+# Config
+# Build dataset
+# Train
+# Test
 
 ## License ##
 
