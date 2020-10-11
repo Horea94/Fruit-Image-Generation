@@ -2,8 +2,10 @@
 
 The code here relies on the images from the [Fruits-360](https://github.com/Horea94/Fruit-Images-Dataset) repository so you will need to download that as well.
 
-# Prerequisites
-### Get dataset
+# Running Object Detection
+
+## 1 Prerequisites
+### 1.1 Get dataset
 [The Fruits-360 Repository](https://github.com/Horea94/Fruit-Images-Dataset)
 I recommend creating soft links to the Training and Test folders from the Fruits-360 repo in the folder where you download Fruit-Experimental.
 Open a command line or terminal in the Fruit-Experimental and do:
@@ -14,7 +16,7 @@ Open a command line or terminal in the Fruit-Experimental and do:
 
 Where "path-to-Fruits-360" is the absolute or relative path to the Fruits-360 folder, which you should have after downloading the Fruits-360 repo.
 
-### Install  Python, TensorFlow 2 and other dependencies
+### 1.2 Install  Python, TensorFlow 2 and other dependencies
 
 [Install Python 3.8](https://www.python.org/downloads/) *TensorFlow does not support a higher version*
 
@@ -28,13 +30,15 @@ Install scikit-learn by running in a command line:
 
 `pip install scikit-learn`
 
-# Config
+## 2 Config (in folder src/object_detection)
 
+Make a copy of each of the **detection_config.py.tmplt** and **labels.txt.tmplt** files and name them **detection_config.py** and **labels.txt**, respectively.
+The **labels.txt** file is used to select the source classes from the Fruits-360 dataset to build the detection dataset.
+The **detection_config.py** file contains all the settings related to the data generation and network configuration.
 
-
-# Build dataset
-# Train
-# Test
+## 3 Build dataset
+## 4 Train
+## 5 Test
 
 ## License ##
 
