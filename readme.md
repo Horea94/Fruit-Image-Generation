@@ -1,16 +1,37 @@
 # Fruit-Experimental: An extension to the networks from Fruits-360 repository #
 
-The code here relies on the images from the [Fruits-360](https://github.com/Horea94/Fruit-Images-Dataset) repository so you will need to download both.
-I recommend creating soft links to the Training and Test folders from the Fruits-360 repo.
-From the Fruit-Experimental folder, open a command line or terminal and do:
+The code here relies on the images from the [Fruits-360](https://github.com/Horea94/Fruit-Images-Dataset) repository so you will need to download that as well.
 
-mklink /D Training "path-to-Fruits-360/Training"
-mklink /D Test "path-to-Fruits-360/Test"
+# Prerequisites
+### Get dataset
+[The Fruits-360 Repository](https://github.com/Horea94/Fruit-Images-Dataset)
+I recommend creating soft links to the Training and Test folders from the Fruits-360 repo in the folder where you download Fruit-Experimental.
+Open a command line or terminal in the Fruit-Experimental and do:
+
+`mklink /D Training "path-to-Fruits-360/Training"`
+
+`mklink /D Test "path-to-Fruits-360/Test"`
 
 Where "path-to-Fruits-360" is the absolute or relative path to the Fruits-360 folder, which you should have after downloading the Fruits-360 repo.
 
-# TensorFlow 2.0 required
+### Install  Python, TensorFlow 2 and other dependencies
+
+[Install Python 3.8](https://www.python.org/downloads/) *TensorFlow does not support a higher version*
+
+[Install TensorFlow 2](https://www.tensorflow.org/install)
+
+Install opencv by running in a command line:
+
+`pip install opencv-python`
+
+Install scikit-learn by running in a command line:
+
+`pip install scikit-learn`
+
 # Config
+
+
+
 # Build dataset
 # Train
 # Test
