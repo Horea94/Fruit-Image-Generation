@@ -5,6 +5,9 @@ src/image_classification/output_files
 src/image_classification_tf_1.8.0/fruit_models
 src/image_classification_tf_1.8.0/data
 Dataset/*
+!Dataset/Backgrounds/
+Dataset/Backgrounds/*
+!Dataset/Backgrounds/default_bkg.png
 src/segmentation/models
 src/object_detection/models
 src/object_detection/labels.txt
