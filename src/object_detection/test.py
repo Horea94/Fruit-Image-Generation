@@ -133,7 +133,7 @@ def test(model_name='vgg'):
             # print(P_cls)
 
             for ii in range(P_cls.shape[1]):
-                if np.max(P_cls[0, ii, :]) < 0.5 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
+                if np.max(P_cls[0, ii, :]) < 0.8 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
                     continue
 
                 cls_name = detection_config.fruit_labels[np.argmax(P_cls[0, ii, :])]
