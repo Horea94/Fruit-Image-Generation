@@ -45,7 +45,9 @@ The **detection_config.py** file contains all the settings related to the data g
 
 ## 3 Build dataset (in folder src/object_detection)
 
-The default settings in **detection_config.py** use 5 threads to generate 300 images, and the default **labels.txt** use the Apple Red, Banana and Orange labels.
+The default settings in **detection_config.py** use 5 threads to generate 300 images, and the default **labels.txt** use the Apple Red 1, Banana and Orange labels.
+
+Provided in this repo, there is only one background image: Dataset/Backgrounds/default_bkg.png, Others images can be added (recommended resolution 1024 x 768) and they will be used as background for generating data.
 
 Run the following command
 
