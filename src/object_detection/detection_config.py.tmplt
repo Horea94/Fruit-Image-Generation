@@ -1,9 +1,12 @@
 import numpy as np
 
+# these folders are the source folders from the Fruits-360 repo
 dataset_train_folder = '../../Training/'
 dataset_test_folder = '../../Test/'
 
 background_folder = '../../Dataset/Backgrounds/'
+# in here the build_detection_dataset.py script will dump the degerated images
+# these folders will further serve as input for training/testing
 train_folder = '../../Dataset/Train/'
 test_folder = '../../Dataset/Test/'
 image_folder = train_folder + 'images/'

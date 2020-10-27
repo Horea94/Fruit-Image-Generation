@@ -91,7 +91,7 @@ def test(model_name='vgg'):
     helper.load_model_weigths(model_rpn, model_path)
     helper.load_model_weigths(model_classifier, model_path)
 
-    bbox_threshold = 0.4
+    bbox_threshold = 0.8
 
     for img_name in os.listdir(detection_config.test_images):
         img_path = detection_config.test_images
@@ -133,7 +133,7 @@ def test(model_name='vgg'):
             # print(P_cls)
 
             for ii in range(P_cls.shape[1]):
-                if np.max(P_cls[0, ii, :]) < 0.8 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
+                if np.max(P_cls[0, ii, :]) < 0.5 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
                     continue
 
                 cls_name = detection_config.fruit_labels[np.argmax(P_cls[0, ii, :])]
@@ -169,9 +169,10 @@ def test(model_name='vgg'):
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (0, 0, 0), 2)
                 cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5), (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
                 cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 0), 1)
-
-        print(all_dets)
-        print(bboxes)
+                
+                print("X1: %d Y1: %d X2: %d Y2: %d P: %f" % (real_x1, real_y1, real_x2, real_y2, new_probs[jk]))
+        # print(all_dets)
+        # print(bboxes)
         # enable if you want to show pics
 
         cv2.imwrite(detection_config.output_folder + img_name, img)
