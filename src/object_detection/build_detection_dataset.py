@@ -135,9 +135,9 @@ def enhance_image(canvas, contrast=True, brightness=True):
     brightness_factor = 0
     contrast_factor = 1.0
     if contrast:
-        contrast_factor = random.random() * 1.0 + 0.5
+        contrast_factor = random.random() * 0.4 + 0.8
     if brightness:
-        brightness_factor = random.random() * 1.0 + 0.5
+        brightness_factor = random.random() * 0.4 + 0.8
     canvas = cv2.convertScaleAbs(canvas, alpha=contrast_factor, beta=brightness_factor)
     return canvas
 
