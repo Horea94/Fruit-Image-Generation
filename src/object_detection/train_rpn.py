@@ -1,5 +1,4 @@
 from __future__ import division
-import sys
 import numpy as np
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adadelta, Adam
@@ -11,8 +10,9 @@ from utils import data_generators, loss_functions, simple_parser
 from networks import vgg, resnet
 from custom_callbacks.CustomModelSaver import CustomModelSaver
 from utils.CustomModelSaverUtil import CustomModelSaverUtil
-
-sys.setrecursionlimit(40000)
+# this import is for TF 2.4 compatibility, otherwise the process fails to copy data to the GPU memory
+# the import can be replaced with the code that is written in the utils/tf_2_4_compatibility.py file
+import utils.tf_2_4_compatibility
 
 
 def train(use_saved_rpn=False, model_name='vgg'):

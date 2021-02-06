@@ -14,8 +14,9 @@ from utils import data_generators, loss_functions, simple_parser, roi_helpers
 from networks import vgg, resnet
 from utils.CustomLearningRateMonitor import CustomLearningRateMonitor
 from utils.CustomModelSaverUtil import CustomModelSaverUtil
-
-sys.setrecursionlimit(40000)
+# this import is for TF 2.4 compatibility, otherwise the process fails to copy data to the GPU memory
+# the import can be replaced with the code that is written in the utils/tf_2_4_compatibility.py file
+import utils.tf_2_4_compatibility
 
 
 def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):

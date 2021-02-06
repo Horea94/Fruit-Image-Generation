@@ -11,8 +11,9 @@ from utils import roi_helpers
 import detection_config
 from networks import vgg, resnet
 from utils.CustomModelSaverUtil import CustomModelSaverUtil
-
-sys.setrecursionlimit(40000)
+# this import is for TF 2.4 compatibility, otherwise the process fails to copy data to the GPU memory
+# the import can be replaced with the code that is written in the utils/tf_2_4_compatibility.py file
+import utils.tf_2_4_compatibility
 
 
 def format_img_size(img):
