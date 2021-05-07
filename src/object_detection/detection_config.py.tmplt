@@ -1,22 +1,24 @@
 import numpy as np
 
-# these folders are the source folders from the Fruits-360 repo
-dataset_train_folder = '../../Training/'
-dataset_test_folder = '../../Test/'
+project_root = '../../'
 
-background_folder = '../../Dataset/Backgrounds/'
+# these folders are the source folders from the Fruits-360 repo
+source_dataset_train_folder = project_root + 'Training/'
+source_dataset_test_folder = project_root + 'Test/'
+
+background_folder = project_root + 'Dataset/Backgrounds/'
 # in here the build_detection_dataset.py script will dump the degerated images
 # these folders will further serve as input for training/testing
-train_folder = '../../Dataset/Train/'
-test_folder = '../../Dataset/Test/'
+train_folder = project_root + 'Dataset/Train/'
+test_folder = project_root + 'Dataset/Test/'
 image_folder = train_folder + 'images/'
 mask_folder = train_folder + 'masks/'
 annotation_folder = train_folder + 'annotations/'
 test_images = test_folder + 'images/'
 test_annotations = test_folder + 'annotations/'
-output_folder = '../../Dataset/Output/'
+output_folder = project_root + 'Dataset/Output/'
 models_folder = 'models/'
-labels_file = 'labels.txt'
+labels_file = 'labels.txt
 
 ################################ Dataset Generation ################################
 

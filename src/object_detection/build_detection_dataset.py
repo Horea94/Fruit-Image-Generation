@@ -32,7 +32,7 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
 
     for i in range(0, len(config.fruit_labels) - 1):
         label = config.fruit_labels[i]
-        labels_to_images[label] = glob.glob(config.dataset_train_folder + label + '/*')
+        labels_to_images[label] = glob.glob(config.source_dataset_train_folder + label + '/*')
 
     for index in range(limit):
         img_count = index * total_threads + thread_id
