@@ -2,10 +2,10 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 from tensorflow.keras.layers import Input, Add, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D, TimeDistributed, BatchNormalization, Dropout
-from custom_layers.RoiPoolingConv import RoiPoolingConv
+from frcnn.custom_layers.RoiPoolingConv import RoiPoolingConv
 
 import tensorflow.keras.backend as K
-import detection_config
+from frcnn import frcnn_config
 
 
 def get_img_output_length(width, height):
@@ -189,7 +189,7 @@ def rpn(base_layers, num_anchors):
     return [x_class, x_regr, base_layers]
 
 
-def classifier(base_layers, input_rois, num_rois, nb_classes=detection_config.num_classes):
+def classifier(base_layers, input_rois, num_rois, nb_classes=frcnn_config.num_classes):
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
     pooling_regions = 14

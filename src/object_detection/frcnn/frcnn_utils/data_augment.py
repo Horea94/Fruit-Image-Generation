@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import copy
-import detection_config
+from frcnn import frcnn_config
 
 
 def augment(img_data, augment=True):
@@ -17,7 +17,7 @@ def augment(img_data, augment=True):
     if augment:
         rows, cols = img.shape[:2]
 
-        if detection_config.use_horizontal_flips and np.random.randint(0, 2) == 0:
+        if frcnn_config.use_horizontal_flips and np.random.randint(0, 2) == 0:
             img = cv2.flip(img, 1)
             for bbox in img_data_aug['bboxes']:
                 x1 = bbox['x1']
@@ -25,7 +25,7 @@ def augment(img_data, augment=True):
                 bbox['x2'] = cols - x1
                 bbox['x1'] = cols - x2
 
-        if detection_config.use_vertical_flips and np.random.randint(0, 2) == 0:
+        if frcnn_config.use_vertical_flips and np.random.randint(0, 2) == 0:
             img = cv2.flip(img, 0)
             for bbox in img_data_aug['bboxes']:
                 y1 = bbox['y1']
@@ -33,7 +33,7 @@ def augment(img_data, augment=True):
                 bbox['y2'] = rows - y1
                 bbox['y1'] = rows - y2
 
-        if detection_config.random_rotate:
+        if frcnn_config.random_rotate:
             angle = np.random.choice([0, 90, 180, 270], 1)[0]
             if angle == 270:
                 img = np.transpose(img, (1, 0, 2))

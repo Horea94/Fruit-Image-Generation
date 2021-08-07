@@ -1,6 +1,6 @@
 import cv2
 import os
-import detection_config
+from frcnn import frcnn_config
 
 
 def get_data(annotations_path, images_path):
@@ -17,7 +17,7 @@ def get_data(annotations_path, images_path):
             for line in lines:
                 line_split = line.strip().split(',')
                 (x1, y1, x2, y2, class_name) = line_split
-                class_index = detection_config.fruit_labels.index(class_name)
+                class_index = frcnn_config.fruit_labels.index(class_name)
 
                 if filename not in all_imgs:
                     all_imgs[filename] = {}

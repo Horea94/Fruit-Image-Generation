@@ -1,26 +1,25 @@
 from __future__ import division
 import random
-import sys
 import time
 import numpy as np
 
-from tensorflow.keras.optimizers import Adadelta, Adam
+from tensorflow.keras.optimizers import Adadelta
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import Progbar
 
-import detection_config
-from utils import data_generators, loss_functions, simple_parser, roi_helpers
-from networks import vgg, resnet
-from utils.CustomLearningRateMonitor import CustomLearningRateMonitor
-from utils.CustomModelSaverUtil import CustomModelSaverUtil
+import frcnn_config
+from utils import simple_parser
+from frcnn.frcnn_utils import roi_helpers, data_generators, loss_functions
+from frcnn.networks import resnet, vgg
+from custom_callbacks.CustomLearningRateMonitor import CustomLearningRateMonitor
+from custom_callbacks.CustomModelSaverUtil import CustomModelSaverUtil
 # this import is for TF 2.4 compatibility, otherwise the process fails to copy data to the GPU memory
-# the import can be replaced with the code that is written in the utils/tf_2_4_compatibility.py file
-import utils.tf_2_4_compatibility
+# the import can be replaced with the code that is written in the frcnn_utils/tf_2_4_compatibility.py file
 
 
 def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
-    all_imgs = simple_parser.get_data(detection_config.annotation_folder, detection_config.image_folder)
+    all_imgs = simple_parser.get_data(frcnn_config.train_annotation_folder, frcnn_config.train_image_folder)
 
     train_imgs = [s for s in all_imgs if s['imageset'] == 'train']
     val_imgs = [s for s in all_imgs if s['imageset'] == 'val']
@@ -36,53 +35,49 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
         print("model with name: %s is not supported" % model_name)
         print("The supported models are:\nvgg\nresnet\n")
         return
-    model_name_prefix = model_name + '_'
-    model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
-    rpn_loss_path = detection_config.models_folder + model_name_prefix + 'loss_rpn'
-    cls_loss_path = detection_config.models_folder + model_name_prefix + 'loss_cls'
     helper = CustomModelSaverUtil()
 
     data_gen_train = data_generators.get_anchor_gt(train_imgs, nn.get_img_output_length, augment=True, shuffle=True)
     data_gen_val = data_generators.get_anchor_gt(val_imgs, nn.get_img_output_length, augment=False, shuffle=False)
 
-    img_input = Input(shape=detection_config.input_shape_img)
+    img_input = Input(shape=frcnn_config.input_shape_img)
     roi_input = Input(shape=(None, 4))
 
     # define the base network (resnet here, can be VGG, Inception, etc)
     shared_layers = nn.nn_base(img_input)
 
     # define the RPN, built on the base layers
-    rpn = nn.rpn(shared_layers, detection_config.num_anchors)
+    rpn = nn.rpn(shared_layers, frcnn_config.num_anchors)
 
-    classifier = nn.classifier(shared_layers, roi_input, detection_config.num_rois, nb_classes=detection_config.num_classes)
+    classifier = nn.classifier(shared_layers, roi_input, frcnn_config.num_rois, nb_classes=frcnn_config.num_classes)
 
     model_rpn = Model(img_input, rpn[:2], name='rpn')
     model_cls = Model([img_input, roi_input], classifier, name='cls')
     model_all = Model([img_input, roi_input], rpn[:2] + classifier)
 
-    rpn_lr = detection_config.initial_rpn_lr
-    cls_lr = detection_config.initial_cls_lr
+    rpn_lr = frcnn_config.initial_rpn_lr
+    cls_lr = frcnn_config.initial_cls_lr
 
     optimizer_rpn = Adadelta(learning_rate=rpn_lr)
     optimizer_classifier = Adadelta(learning_rate=cls_lr)
 
-    model_rpn.compile(optimizer=optimizer_rpn, loss=[loss_functions.rpn_loss_cls(detection_config.num_anchors), loss_functions.rpn_loss_regr(detection_config.num_anchors)])
-    model_cls.compile(optimizer=optimizer_classifier, loss=[loss_functions.class_loss_cls, loss_functions.class_loss_regr(detection_config.num_classes - 1)],
-                      metrics={'dense_class_{}'.format(detection_config.num_classes): 'accuracy'})
+    model_rpn.compile(optimizer=optimizer_rpn, loss=[loss_functions.rpn_loss_cls(frcnn_config.num_anchors), loss_functions.rpn_loss_regr(frcnn_config.num_anchors)])
+    model_cls.compile(optimizer=optimizer_classifier, loss=[loss_functions.class_loss_cls, loss_functions.class_loss_regr(frcnn_config.num_classes - 1)],
+                      metrics={'dense_class_{}'.format(frcnn_config.num_classes): 'accuracy'})
     model_all.compile(optimizer='sgd', loss='mae')
 
     best_rpn_loss = np.Inf
     best_cls_loss = np.Inf
 
     if use_saved_rpn:
-        helper.load_model_weigths(model_rpn, model_path)
-        best_rpn_loss = helper.load_last_loss(rpn_loss_path)
+        helper.load_model_weights(model_rpn, frcnn_config.model_path)
+        best_rpn_loss = helper.load_last_loss(frcnn_config.rpn_loss_path)
     if use_saved_cls:
-        helper.load_model_weigths(model_cls, model_path)
-        best_cls_loss = helper.load_last_loss(cls_loss_path)
+        helper.load_model_weights(model_cls, frcnn_config.model_path)
+        best_cls_loss = helper.load_last_loss(frcnn_config.cls_loss_path)
 
-    rpn_monitor = CustomLearningRateMonitor(model=model_rpn, lr=rpn_lr, min_lr=detection_config.min_rpn_lr, reduction_factor=0.5, patience=10)
-    cls_monitor = CustomLearningRateMonitor(model=model_cls, lr=cls_lr, min_lr=detection_config.min_cls_lr, reduction_factor=0.5, patience=10)
+    rpn_monitor = CustomLearningRateMonitor(model=model_rpn, lr=rpn_lr, min_lr=frcnn_config.min_rpn_lr, reduction_factor=0.5, patience=10)
+    cls_monitor = CustomLearningRateMonitor(model=model_cls, lr=cls_lr, min_lr=frcnn_config.min_cls_lr, reduction_factor=0.5, patience=10)
 
     epoch_length = len(train_imgs)
     iter_num = 0
@@ -94,9 +89,9 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
 
     print('Starting training')
 
-    for epoch_num in range(detection_config.epochs):
+    for epoch_num in range(frcnn_config.epochs):
         progbar = Progbar(epoch_length)
-        print('Epoch %d/%d' % (epoch_num + 1, detection_config.epochs))
+        print('Epoch %d/%d' % (epoch_num + 1, frcnn_config.epochs))
 
         while True:
             try:
@@ -134,15 +129,15 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
                     # continue
                     pos_samples = np.array([])
 
-                if detection_config.num_rois > 1:
-                    if len(pos_samples) < detection_config.num_rois // 2:
+                if frcnn_config.num_rois > 1:
+                    if len(pos_samples) < frcnn_config.num_rois // 2:
                         selected_pos_samples = pos_samples.tolist()
                     else:
-                        selected_pos_samples = np.random.choice(pos_samples, detection_config.num_rois // 2, replace=False).tolist()
+                        selected_pos_samples = np.random.choice(pos_samples, frcnn_config.num_rois // 2, replace=False).tolist()
                     try:
-                        selected_neg_samples = np.random.choice(neg_samples, detection_config.num_rois - len(selected_pos_samples), replace=False).tolist()
+                        selected_neg_samples = np.random.choice(neg_samples, frcnn_config.num_rois - len(selected_pos_samples), replace=False).tolist()
                     except:
-                        selected_neg_samples = np.random.choice(neg_samples, detection_config.num_rois - len(selected_pos_samples), replace=True).tolist()
+                        selected_neg_samples = np.random.choice(neg_samples, frcnn_config.num_rois - len(selected_pos_samples), replace=True).tolist()
                     sel_samples = selected_pos_samples + selected_neg_samples
                 else:
                     # in the extreme case where num_rois = 1, we pick a random pos or neg sample
@@ -201,9 +196,9 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
                         print('Total loss for model decreased from %f to %f, saving weights' % (best_rpn_loss + best_cls_loss, curr_rpn_loss + curr_cls_loss))
                         best_rpn_loss = curr_rpn_loss
                         best_cls_loss = curr_cls_loss
-                        helper.save_model_weights(model_all, model_path)
-                        helper.save_loss(curr_rpn_loss, rpn_loss_path)
-                        helper.save_loss(curr_cls_loss, cls_loss_path)
+                        helper.save_model_weights(model_all, frcnn_config.model_path)
+                        helper.save_loss(curr_rpn_loss, frcnn_config.rpn_loss_path)
+                        helper.save_loss(curr_cls_loss, frcnn_config.cls_loss_path)
                     else:
                         print('Total loss for model did not improve from %f' % (best_rpn_loss + best_cls_loss))
 
@@ -216,4 +211,4 @@ def train(use_saved_rpn=False, use_saved_cls=False, model_name='vgg'):
     print('Training complete, exiting.')
 
 
-train(use_saved_rpn=True, use_saved_cls=True, model_name=detection_config.used_model_name)
+train(use_saved_rpn=True, use_saved_cls=True, model_name=frcnn_config.used_model_name)

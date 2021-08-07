@@ -13,7 +13,7 @@ from utils.DatasetStats import DatasetStats
 stats = DatasetStats()
 
 
-def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True):
+def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True):
     global stats
     local_stats = DatasetStats()
     bkg_image_paths = [config.background_folder + x for x in os.listdir(config.background_folder)]
@@ -21,30 +21,32 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
     rotation_angles = [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
     mutex.acquire()
     try:
-        if not os.path.exists(config.image_folder):
-            os.makedirs(config.image_folder)
-        if not os.path.exists(config.mask_folder):
-            os.makedirs(config.mask_folder)
-        if not os.path.exists(config.annotation_folder):
-            os.makedirs(config.annotation_folder)
+        if not os.path.exists(image_save_path):
+            os.makedirs(image_save_path)
+        if not os.path.exists(mask_save_path):
+            os.makedirs(mask_save_path)
+        if not os.path.exists(annotation_save_path):
+            os.makedirs(annotation_save_path)
     finally:
         mutex.release()
 
-    for i in range(0, len(config.fruit_labels) - 1):
+    for i in range(1, len(config.fruit_labels)):
         label = config.fruit_labels[i]
         labels_to_images[label] = glob.glob(config.source_dataset_train_folder + label + '/*')
 
     for index in range(limit):
+        skewed_width = math.floor(config.img_shape[1] * random.uniform(config.img_skew_range[0], config.img_skew_range[1]))
+        skewed_height = math.floor(config.img_shape[0] * random.uniform(config.img_skew_range[0], config.img_skew_range[1]))
         img_count = index * total_threads + thread_id
         canvas = cv2.imread(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)])
-        canvas = cv2.resize(canvas, (config.img_shape[1], config.img_shape[0]))
+        canvas = cv2.resize(canvas, (skewed_width, skewed_height))
         canvas = enhance_image(canvas)
-        mask_canvas = np.zeros(config.img_shape, dtype=np.uint8)
+        mask_canvas = np.zeros((skewed_height, skewed_width, config.img_shape[2]), dtype=np.uint8)
         anchors = []
         # fruits_in_image = random.randint(1, 6)
-        fruits_in_image = 20
+        fruits_in_image = 15
         for i in range(fruits_in_image):
-            fruit_label_index = random.randint(0, len(config.fruit_labels) - 2)
+            fruit_label_index = random.randint(1, len(config.fruit_labels) - 1)
             fruit_label = config.fruit_labels[fruit_label_index]
             fruit_image_path = labels_to_images[fruit_label][random.randint(0, len(labels_to_images[fruit_label]) - 1)]
             fruit_img_size = random.randint(config.min_fruit_size, config.max_fruit_size)
@@ -79,9 +81,12 @@ def build_dataset(thread_id, total_threads, limit, mutex, is_binary_mask=True, s
             successfully_added_img, w, h = add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
             if successfully_added_img:
                 update_stats(local_stats, h, w)
-        cv2.imwrite(config.image_folder + str(img_count) + '.png', canvas)
-        cv2.imwrite(config.mask_folder + str(img_count) + '.png', mask_canvas)
-        write_annotation_to_file(anchors, img_count, simple_format=simple_annotation_format)
+        canvas = cv2.resize(canvas, (config.img_shape[1], config.img_shape[0]))
+        mask_canvas = cv2.resize(mask_canvas, (config.img_shape[1], config.img_shape[0]))
+        cv2.imwrite(image_save_path + str(img_count) + '.png', canvas)
+        cv2.imwrite(mask_save_path + str(img_count) + '.png', mask_canvas)
+        anchors = resize_bounding_boxes(anchors, skewed_width, skewed_height, config.img_shape[1], config.img_shape[0])
+        write_annotation_to_file(annotation_save_path, anchors, img_count, simple_format=simple_annotation_format)
         print("Thread %d saved image %d.png" % (thread_id, img_count))
     mutex.acquire()
     if local_stats.minimum_area < stats.minimum_area:
@@ -110,15 +115,33 @@ def update_stats(stats_param, h, w):
         stats_param.minimum_width_img_w = w
 
 
-def write_annotation_to_file(anchors, img_count, simple_format=True):
+def resize_bounding_boxes(anchors, old_width, old_height, new_width, new_height):
+    resized_anchors = []
+    for anchor in anchors:
+        resized_anchors.append(((round_number(new_height * anchor[0][0] / old_height), round_number(new_width * anchor[0][1] / old_width)),
+                                (round_number(new_height * anchor[1][0] / old_height), round_number(new_width * anchor[1][1] / old_width)),
+                                (round_number(new_height * anchor[2][0] / old_height), round_number(new_width * anchor[2][1] / old_width)),
+                                (round_number(new_height * anchor[3][0] / old_height), round_number(new_width * anchor[3][1] / old_width)),
+                                anchor[4]))
+    return resized_anchors
+
+
+def round_number(x):
+    if x - int(x) >= 0.5:
+        return math.ceil(x)
+    else:
+        return math.floor(x)
+
+
+def write_annotation_to_file(annotation_save_path, anchors, img_count, simple_format=True):
     if simple_format:
-        with open(config.annotation_folder + str(img_count), 'w') as f:
+        with open(annotation_save_path + str(img_count), 'w') as f:
             f.write(str(img_count) + '.png\n')
             for anchor in anchors:
                 f.write(str(anchor[0][1]) + ',' + str(anchor[0][0]) + ',' + str(anchor[3][1]) + ',' + str(anchor[3][0]) + ',' + anchor[4] + '\n')
     else:
         root = ep.Element('annotation')
-        ep.SubElement(root, 'path').text = config.image_folder + str(img_count) + '.png'
+        ep.SubElement(root, 'path').text = config.train_image_folder + str(img_count) + '.png'
         for anchor in anchors:
             obj = ep.SubElement(root, 'object')
             ep.SubElement(obj, 'name').text = anchor[4]
@@ -128,7 +151,7 @@ def write_annotation_to_file(anchors, img_count, simple_format=True):
             ep.SubElement(bndbox, 'ymin').text = str(anchor[0][0])
             ep.SubElement(bndbox, 'ymax').text = str(anchor[3][0])
         tree = ep.ElementTree(root)
-        tree.write(file_or_filename=config.annotation_folder + str(img_count) + '.xml')
+        tree.write(file_or_filename=annotation_save_path + str(img_count) + '.xml')
 
 
 def enhance_image(canvas, contrast=True, brightness=True):
@@ -158,6 +181,8 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
     y = 0
     done = False
     attempts = 10
+    if min_x > max_x or min_y > max_y:
+        return done, 0, 0
     while not done and attempts > 0:
         # attempt to find a free area on the canvas to add the image
         # if no free space is found, the image is not added
@@ -226,11 +251,20 @@ def adjust_bounds_for_overlap(factor, upper_left_point, upper_right_point, lower
 def build_mask(fruit_image, threshold=config.mask_threshold):
     img = cv2.cvtColor(fruit_image, cv2.COLOR_BGR2GRAY)
     _, img = cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY_INV)
+    img_flood_fill = img.copy()
+    h, w = img.shape[:2]
+    mask = np.zeros((h + 2, w + 2), np.uint8)
+    cv2.floodFill(img_flood_fill, mask, (0, 0), 255)
+    cv2.floodFill(img_flood_fill, mask, (w - 1, 0), 255)
+    cv2.floodFill(img_flood_fill, mask, (0, h - 1), 255)
+    cv2.floodFill(img_flood_fill, mask, (w - 1, h - 1), 255)
+    img_flood_fill = cv2.bitwise_not(img_flood_fill)
+    img = img_flood_fill | img
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     kernel = np.ones((3, 3), np.uint8)
-    img = cv2.erode(img, kernel, iterations=2)
-    img = cv2.dilate(img, kernel, iterations=2)
-    img = cv2.erode(img, kernel, iterations=2)
+    img = cv2.erode(img, kernel, iterations=1)
+    # img = cv2.dilate(img, kernel, iterations=1)
+    # img = cv2.erode(img, kernel, iterations=1)
     return img
 
 
@@ -244,14 +278,27 @@ def color_mask(fruit_mask, fruit_mask_color):
 
 if __name__ == "__main__":
     thrd_list = []
-    mutex = threading.Lock()
-    image_limit = config.dataset_generation_limit
-    max_images_per_thread = int(math.ceil(image_limit / config.total_threads))
-    for index in range(config.total_threads):
-        thread = threading.Thread(target=build_dataset, args=(index, config.total_threads, min(max_images_per_thread, image_limit), mutex))
-        image_limit -= max_images_per_thread
-        thrd_list.append(thread)
-        thread.start()
+    train_mutex = threading.Lock()
+    valid_mutex = threading.Lock()
+    image_limit = config.train_dataset_generation_limit
+    if image_limit > 0:
+        max_images_per_thread = int(math.ceil(image_limit / config.total_threads))
+        for index in range(config.total_threads):
+            thread = threading.Thread(target=build_dataset, args=(config.train_image_folder, config.train_mask_folder, config.train_annotation_folder,
+                                                                  index, config.total_threads, min(max_images_per_thread, image_limit), train_mutex))
+            image_limit -= max_images_per_thread
+            thrd_list.append(thread)
+            thread.start()
+
+    image_limit = config.valid_dataset_generation_limit
+    if image_limit > 0:
+        max_images_per_thread = int(math.ceil(image_limit / config.total_threads))
+        for index in range(config.total_threads):
+            thread = threading.Thread(target=build_dataset, args=(config.valid_image_folder, config.valid_mask_folder, config.valid_annotation_folder,
+                                                                  index, config.total_threads, min(max_images_per_thread, image_limit), valid_mutex))
+            image_limit -= max_images_per_thread
+            thrd_list.append(thread)
+            thread.start()
 
     for thrd in thrd_list:
         thrd.join()

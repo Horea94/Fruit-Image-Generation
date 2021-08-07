@@ -1,24 +1,24 @@
 import numpy as np
 import math
-from utils import data_generators
+from frcnn.frcnn_utils import data_generators
 import copy
-import detection_config
+from frcnn import frcnn_config
 
 
 def calc_iou(R, img_data):
     bboxes = img_data['bboxes']
     (width, height) = (img_data['width'], img_data['height'])
     # get image dimensions for resizing
-    (resized_width, resized_height) = data_generators.get_new_img_size(width, height, detection_config.img_size)
+    (resized_width, resized_height) = data_generators.get_new_img_size(width, height, frcnn_config.img_size)
 
     gta = np.zeros((len(bboxes), 4))
 
     for bbox_num, bbox in enumerate(bboxes):
         # get the GT box coordinates, and resize to account for image resizing
-        gta[bbox_num, 0] = int(round(bbox['x1'] * (resized_width / float(width)) / detection_config.rpn_stride))
-        gta[bbox_num, 1] = int(round(bbox['x2'] * (resized_width / float(width)) / detection_config.rpn_stride))
-        gta[bbox_num, 2] = int(round(bbox['y1'] * (resized_height / float(height)) / detection_config.rpn_stride))
-        gta[bbox_num, 3] = int(round(bbox['y2'] * (resized_height / float(height)) / detection_config.rpn_stride))
+        gta[bbox_num, 0] = int(round(bbox['x1'] * (resized_width / float(width)) / frcnn_config.rpn_stride))
+        gta[bbox_num, 1] = int(round(bbox['x2'] * (resized_width / float(width)) / frcnn_config.rpn_stride))
+        gta[bbox_num, 2] = int(round(bbox['y1'] * (resized_height / float(height)) / frcnn_config.rpn_stride))
+        gta[bbox_num, 3] = int(round(bbox['y2'] * (resized_height / float(height)) / frcnn_config.rpn_stride))
 
     x_roi = []
     y_class_num = []
@@ -41,7 +41,7 @@ def calc_iou(R, img_data):
                 best_iou = curr_iou
                 best_bbox = bbox_num
 
-        if best_iou < detection_config.classifier_min_overlap:
+        if best_iou < frcnn_config.classifier_min_overlap:
             continue
         else:
             w = x2 - x1
@@ -49,10 +49,10 @@ def calc_iou(R, img_data):
             x_roi.append([x1, y1, w, h])
             IoUs.append(best_iou)
 
-            if detection_config.classifier_min_overlap <= best_iou < detection_config.classifier_max_overlap:
+            if frcnn_config.classifier_min_overlap <= best_iou < frcnn_config.classifier_max_overlap:
                 # hard negative example
-                cls_index = detection_config.fruit_labels.index(detection_config.bg)
-            elif detection_config.classifier_max_overlap <= best_iou:
+                cls_index = frcnn_config.fruit_labels.index(frcnn_config.bg)
+            elif frcnn_config.classifier_max_overlap <= best_iou:
                 cls_index = bboxes[best_bbox]['class']
                 cxg = (gta[best_bbox, 0] + gta[best_bbox, 1]) / 2.0
                 cyg = (gta[best_bbox, 2] + gta[best_bbox, 3]) / 2.0
@@ -68,15 +68,15 @@ def calc_iou(R, img_data):
                 print('roi = {}'.format(best_iou))
                 raise RuntimeError
 
-        coords = [0] * 4 * (detection_config.num_classes - 1)
-        labels = [0] * 4 * (detection_config.num_classes - 1)
-        class_label = len(detection_config.fruit_labels) * [0]
+        coords = [0] * 4 * (frcnn_config.num_classes - 1)
+        labels = [0] * 4 * (frcnn_config.num_classes - 1)
+        class_label = len(frcnn_config.fruit_labels) * [0]
         class_label[cls_index] = 1
         y_class_num.append(copy.deepcopy(class_label))
 
-        if detection_config.fruit_labels[cls_index] != detection_config.bg:
+        if frcnn_config.fruit_labels[cls_index] != frcnn_config.bg:
             label_pos = 4 * cls_index
-            sx, sy, sw, sh = detection_config.classifier_regr_std
+            sx, sy, sw, sh = frcnn_config.classifier_regr_std
             coords[label_pos:4 + label_pos] = [sx * tx, sy * ty, sw * tw, sh * th]
             labels[label_pos:4 + label_pos] = [1, 1, 1, 1]
             y_class_regr_coords.append(copy.deepcopy(coords))
@@ -222,10 +222,10 @@ def non_max_suppression_fast(boxes, probs, overlap_thresh=0.9, max_boxes=300):
 
 
 def rpn_to_roi(rpn_layer, regr_layer, use_regr=True, max_boxes=300, overlap_thresh=0.9):
-    regr_layer = regr_layer / detection_config.std_scaling
+    regr_layer = regr_layer / frcnn_config.std_scaling
 
-    anchor_sizes = detection_config.anchor_box_scales
-    anchor_ratios = detection_config.anchor_box_ratios
+    anchor_sizes = frcnn_config.anchor_box_scales
+    anchor_ratios = frcnn_config.anchor_box_ratios
 
     assert rpn_layer.shape[0] == 1
 
@@ -237,8 +237,8 @@ def rpn_to_roi(rpn_layer, regr_layer, use_regr=True, max_boxes=300, overlap_thre
     for anchor_size in anchor_sizes:
         for anchor_ratio in anchor_ratios:
 
-            anchor_x = (anchor_size * anchor_ratio[0]) / detection_config.rpn_stride
-            anchor_y = (anchor_size * anchor_ratio[1]) / detection_config.rpn_stride
+            anchor_x = (anchor_size * anchor_ratio[0]) / frcnn_config.rpn_stride
+            anchor_y = (anchor_size * anchor_ratio[1]) / frcnn_config.rpn_stride
 
             regr = regr_layer[0, :, :, 4 * curr_layer:4 * (curr_layer + 1)]
             regr = np.transpose(regr, (2, 0, 1))

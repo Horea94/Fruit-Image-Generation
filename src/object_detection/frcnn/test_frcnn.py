@@ -5,18 +5,17 @@ import numpy as np
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 
-from utils import roi_helpers
-import detection_config
-from networks import vgg, resnet
-from utils.CustomModelSaverUtil import CustomModelSaverUtil
+from frcnn.frcnn_utils import roi_helpers
+import frcnn_config
+from frcnn.networks import resnet, vgg
+from custom_callbacks.CustomModelSaverUtil import CustomModelSaverUtil
 # this import is for TF 2.4 compatibility, otherwise the process fails to copy data to the GPU memory
-# the import can be replaced with the code that is written in the utils/tf_2_4_compatibility.py file
-import utils.tf_2_4_compatibility
+# the import can be replaced with the code that is written in the frcnn_utils/tf_2_4_compatibility.py file
 
 
 def format_img_size(img):
     """ formats the image size based on config """
-    img_min_side = float(detection_config.img_size)
+    img_min_side = float(frcnn_config.img_size)
     (height, width, _) = img.shape
 
     if width <= height:
@@ -58,8 +57,8 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
 
 
 def test(model_name='vgg'):
-    img_input = Input(shape=detection_config.input_shape_img)
-    roi_input = Input(shape=(detection_config.num_rois, 4))
+    img_input = Input(shape=frcnn_config.input_shape_img)
+    roi_input = Input(shape=(frcnn_config.num_rois, 4))
 
     if model_name == 'vgg':
         nn = vgg
@@ -69,32 +68,28 @@ def test(model_name='vgg'):
         print("model with name: %s is not supported" % model_name)
         print("The supported models are:\nvgg\nresnet\n")
         return
-    model_name_prefix = model_name + '_'
-
     helper = CustomModelSaverUtil()
-    model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
-
     feature_map_input = Input(shape=nn.get_feature_maps_shape())
 
     # define the base network (resnet here, can be VGG, Inception, etc)
     shared_layers = nn.nn_base(img_input)
 
     # define the RPN, built on the base layers
-    num_anchors = len(detection_config.anchor_box_scales) * len(detection_config.anchor_box_ratios)
+    num_anchors = len(frcnn_config.anchor_box_scales) * len(frcnn_config.anchor_box_ratios)
     rpn_layers = nn.rpn(shared_layers, num_anchors)
 
-    classifier = nn.classifier(feature_map_input, roi_input, detection_config.num_rois, nb_classes=detection_config.num_classes)
+    classifier = nn.classifier(feature_map_input, roi_input, frcnn_config.num_rois, nb_classes=frcnn_config.num_classes)
 
     model_rpn = Model(img_input, rpn_layers)
     model_classifier = Model([feature_map_input, roi_input], classifier)
 
-    helper.load_model_weigths(model_rpn, model_path)
-    helper.load_model_weigths(model_classifier, model_path)
+    helper.load_model_weights(model_rpn, frcnn_config.model_path)
+    helper.load_model_weights(model_classifier, frcnn_config.model_path)
 
-    bbox_threshold = 0.8
+    bbox_threshold = 0.7
 
-    for img_name in os.listdir(detection_config.test_images):
-        img_path = detection_config.test_images
+    for img_name in os.listdir(frcnn_config.test_images):
+        img_path = frcnn_config.test_images
         filepath = os.path.join(img_path, img_name)
 
         img = cv2.imread(filepath)
@@ -115,15 +110,15 @@ def test(model_name='vgg'):
         # apply the spatial pyramid pooling to the proposed regions
         bboxes = {}
         probs = {}
-        for jk in range(R.shape[0] // detection_config.num_rois + 1):
-            ROIs = np.expand_dims(R[detection_config.num_rois * jk:detection_config.num_rois * (jk + 1), :], axis=0)
+        for jk in range(R.shape[0] // frcnn_config.num_rois + 1):
+            ROIs = np.expand_dims(R[frcnn_config.num_rois * jk:frcnn_config.num_rois * (jk + 1), :], axis=0)
             if ROIs.shape[1] == 0:
                 break
 
-            if jk == R.shape[0] // detection_config.num_rois:
+            if jk == R.shape[0] // frcnn_config.num_rois:
                 # pad R
                 curr_shape = ROIs.shape
-                target_shape = (curr_shape[0], detection_config.num_rois, curr_shape[2])
+                target_shape = (curr_shape[0], frcnn_config.num_rois, curr_shape[2])
                 ROIs_padded = np.zeros(target_shape).astype(ROIs.dtype)
                 ROIs_padded[:, :curr_shape[1], :] = ROIs
                 ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
@@ -133,17 +128,17 @@ def test(model_name='vgg'):
             # print(P_cls)
 
             for ii in range(P_cls.shape[1]):
-                if np.max(P_cls[0, ii, :]) < 0.8 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
+                if np.max(P_cls[0, ii, :]) < 0.6 or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
                     continue
 
-                cls_name = detection_config.fruit_labels[np.argmax(P_cls[0, ii, :])]
+                cls_name = frcnn_config.fruit_labels[np.argmax(P_cls[0, ii, :])]
 
                 if cls_name not in bboxes:
                     bboxes[cls_name] = []
                     probs[cls_name] = []
                 (x, y, w, h) = ROIs[0, ii, :]
 
-                bboxes[cls_name].append([detection_config.rpn_stride * x, detection_config.rpn_stride * y, detection_config.rpn_stride * (x + w), detection_config.rpn_stride * (y + h)])
+                bboxes[cls_name].append([frcnn_config.rpn_stride * x, frcnn_config.rpn_stride * y, frcnn_config.rpn_stride * (x + w), frcnn_config.rpn_stride * (y + h)])
                 probs[cls_name].append(np.max(P_cls[0, ii, :]))
 
         all_dets = []
@@ -158,7 +153,7 @@ def test(model_name='vgg'):
                 (x1, y1, x2, y2) = new_boxes[jk, :]
                 (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
 
-                cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2), (int(detection_config.class_to_color[key][0]), int(detection_config.class_to_color[key][1]), int(detection_config.class_to_color[key][2])), 2)
+                cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2), (int(frcnn_config.class_to_color[key][0]), int(frcnn_config.class_to_color[key][1]), int(frcnn_config.class_to_color[key][2])), 2)
 
                 textLabel = '{}: {}'.format(key, int(100 * new_probs[jk]))
                 all_dets.append((key, 100 * new_probs[jk]))
@@ -175,7 +170,7 @@ def test(model_name='vgg'):
         # print(bboxes)
         # enable if you want to show pics
 
-        cv2.imwrite(detection_config.output_folder + img_name, img)
+        cv2.imwrite(frcnn_config.output_folder + img_name, img)
 
 
-test(model_name=detection_config.used_model_name)
+test(model_name=frcnn_config.used_model_name)

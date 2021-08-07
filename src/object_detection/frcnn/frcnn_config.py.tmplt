@@ -1,0 +1,53 @@
+# TODO: Copy this file and name it 'frcnn_config.py'
+
+from detection_config import *
+
+batch_size = 2
+epochs = 200
+input_shape_img = (None, None, 3)  # height, width, channels
+
+# data augmentation
+use_horizontal_flips = False
+use_vertical_flips = False
+random_rotate = False
+
+# balanced_classes = True
+
+# anchor box scales
+anchor_box_scales = [128, 256, 512]
+# anchor box ratios
+anchor_box_ratios = [[1, 1], [2, 1], [1, 2]]
+num_anchors = len(anchor_box_scales) * len(anchor_box_ratios)
+# number of ROIs at once
+# this should be determined based on the average number of objects per image as the training algorithm will try to feed roughly half positive and half negative samples
+# if num_rois is too great compared to the number of objects in the image, most of the samples will represent background, thus the classifier will fail to train correctly
+num_rois = 10
+# stride at the RPN (this depends on the network configuration)
+rpn_stride = 16
+
+# img_channel_mean = [103.939, 116.779, 123.68]
+# img_scaling_factor = 1.0
+std_scaling = 4.0
+classifier_regr_std = [8.0, 8.0, 4.0, 4.0]
+
+# overlaps for RPN
+rpn_min_overlap = 0.3
+rpn_max_overlap = 0.7
+
+# overlaps for classifier ROIs
+classifier_min_overlap = 0.3
+classifier_max_overlap = 0.7
+
+# learning rates for rpn and classifier
+initial_rpn_lr = 1.0
+min_rpn_lr = 1e-6
+initial_cls_lr = 1.0
+min_cls_lr = 1e-6
+
+used_model_name = 'resnet'
+
+model_name_prefix = used_model_name + '_'
+
+model_path = models_folder + 'frcnn/' + model_name_prefix + '.h5'
+rpn_loss_path = models_folder + 'frcnn/' + model_name_prefix + 'loss_rpn'
+cls_loss_path = models_folder + 'frcnn/' + model_name_prefix + 'loss_cls'

@@ -16,7 +16,7 @@ class CustomModelSaverUtil:
         f.write("%f" % loss)
         f.close()
 
-    def load_model_weigths(self, model, model_path):
+    def load_model_weights(self, model, model_path):
         if os.path.exists(model_path):
             model.load_weights(model_path, by_name=True)
         else:

@@ -1,7 +1,7 @@
 import tensorflow as tf
-from utils import constants
+from ..utils import constants
 
-with open(constants.root_dir + '\\utils\\labels') as f:
+with open(constants.labels_file) as f:
     labels = f.readlines()
 labels = [x.strip() for x in labels]
 labels = ["nothing"] + labels

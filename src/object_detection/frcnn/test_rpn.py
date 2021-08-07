@@ -1,24 +1,21 @@
 from __future__ import division
 import cv2
 import numpy as np
-import sys
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 
-from utils import data_generators
 from utils import simple_parser
-from utils import roi_helpers
-import detection_config
-from networks import vgg, resnet
-from utils.CustomModelSaverUtil import CustomModelSaverUtil
+from frcnn.frcnn_utils import roi_helpers, data_generators
+import frcnn_config
+from frcnn.networks import resnet, vgg
+from custom_callbacks.CustomModelSaverUtil import CustomModelSaverUtil
 # this import is for TF 2.4 compatibility, otherwise the process fails to copy data to the GPU memory
-# the import can be replaced with the code that is written in the utils/tf_2_4_compatibility.py file
-import utils.tf_2_4_compatibility
+# the import can be replaced with the code that is written in the frcnn_utils/tf_2_4_compatibility.py file
 
 
 def format_img_size(img):
     """ formats the image size based on config """
-    img_min_side = float(detection_config.img_size)
+    img_min_side = float(frcnn_config.img_size)
     (height, width, _) = img.shape
 
     if width <= height:
@@ -62,7 +59,7 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
 # Currently this outputs a list of  bounding boxes that the rpn predicts
 # TODO: filter the predicted bounding boxes to see if any overlap with the ground truth
 def test(model_name='vgg'):
-    img_input = Input(shape=detection_config.input_shape_img)
+    img_input = Input(shape=frcnn_config.input_shape_img)
 
     if model_name == 'vgg':
         nn = vgg
@@ -72,23 +69,21 @@ def test(model_name='vgg'):
         print("model with name: %s is not supported" % model_name)
         print("The supported models are:\nvgg\nresnet\n")
         return
-    model_name_prefix = model_name + '_'
 
     helper = CustomModelSaverUtil()
-    model_path = detection_config.models_folder + model_name_prefix + 'test_model.h5'
 
     # define the base network (resnet here, can be VGG, Inception, etc)
     shared_layers = nn.nn_base(img_input)
 
     # define the RPN, built on the base layers
-    num_anchors = len(detection_config.anchor_box_scales) * len(detection_config.anchor_box_ratios)
+    num_anchors = len(frcnn_config.anchor_box_scales) * len(frcnn_config.anchor_box_ratios)
     rpn_layers = nn.rpn(shared_layers, num_anchors)
 
     model_rpn = Model(img_input, rpn_layers)
-    helper.load_model_weigths(model_rpn, model_path)
+    helper.load_model_weights(model_rpn, frcnn_config.model_path)
 
     bbox_threshold = 0.8
-    all_img_data = simple_parser.get_data(detection_config.test_annotations, detection_config.test_images)
+    all_img_data = simple_parser.get_data(frcnn_config.test_annotations, frcnn_config.test_images)
 
     for img_data in all_img_data:
         height, width, resized_height, resized_width, img_data_aug, x_img = data_generators.augment_and_resize_image(img_data, augment=False)
@@ -110,7 +105,7 @@ def test(model_name='vgg'):
         R = roi_helpers.rpn_to_roi(Y1, Y2, overlap_thresh=bbox_threshold)
         for i in range(R.shape[0]):
             (x, y, x2, y2) = R[i, :]
-            print((x*detection_config.rpn_stride, y*detection_config.rpn_stride, x2*detection_config.rpn_stride, y2*detection_config.rpn_stride))
+            print((x*frcnn_config.rpn_stride, y*frcnn_config.rpn_stride, x2*frcnn_config.rpn_stride, y2*frcnn_config.rpn_stride))
 
 
-test(model_name=detection_config.used_model_name)
+test(model_name=frcnn_config.used_model_name)

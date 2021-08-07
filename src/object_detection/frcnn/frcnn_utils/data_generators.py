@@ -3,9 +3,9 @@ import numpy as np
 import cv2
 import random
 import math
-import detection_config
+from frcnn import frcnn_config
 from tensorflow.keras.utils import Sequence
-from utils import data_augment
+from frcnn.frcnn_utils import data_augment
 
 
 def union(au, bu, area_intersection):
@@ -37,7 +37,7 @@ def iou(a, b):
     return float(area_i) / float(area_u + 1e-6)
 
 
-def get_new_img_size(width, height, img_min_side=detection_config.img_size):
+def get_new_img_size(width, height, img_min_side=frcnn_config.img_size):
     if width <= height:
         f = float(img_min_side) / width
         resized_height = int(f * height)
@@ -51,10 +51,10 @@ def get_new_img_size(width, height, img_min_side=detection_config.img_size):
 
 
 def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_calc_function):
-    downscale = float(detection_config.rpn_stride)
-    anchor_sizes = detection_config.anchor_box_scales
-    anchor_ratios = detection_config.anchor_box_ratios
-    num_anchors = detection_config.num_anchors
+    downscale = float(frcnn_config.rpn_stride)
+    anchor_sizes = frcnn_config.anchor_box_scales
+    anchor_ratios = frcnn_config.anchor_box_ratios
+    num_anchors = frcnn_config.num_anchors
 
     # calculate the output map size based on the network architecture
 
@@ -123,7 +123,7 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
                         # get IOU of the current GT box and the current anchor box
                         curr_iou = iou([gta[bbox_num, 0], gta[bbox_num, 2], gta[bbox_num, 1], gta[bbox_num, 3]], [x1_anc, y1_anc, x2_anc, y2_anc])
                         # calculate the regression targets if they will be needed
-                        if curr_iou > best_iou_for_bbox[bbox_num] or curr_iou > detection_config.rpn_max_overlap:
+                        if curr_iou > best_iou_for_bbox[bbox_num] or curr_iou > frcnn_config.rpn_max_overlap:
                             cx = (gta[bbox_num, 0] + gta[bbox_num, 1]) / 2.0
                             cy = (gta[bbox_num, 2] + gta[bbox_num, 3]) / 2.0
                             cxa = (x1_anc + x2_anc) / 2.0
@@ -135,7 +135,7 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
                             tw = 1.0 * (gta[bbox_num, 1] - gta[bbox_num, 0]) / (x2_anc - x1_anc)
                             th = 1.0 * (gta[bbox_num, 3] - gta[bbox_num, 2]) / (y2_anc - y1_anc)
 
-                        if detection_config.fruit_labels[img_data['bboxes'][bbox_num]['class']] != detection_config.bg:
+                        if frcnn_config.fruit_labels[img_data['bboxes'][bbox_num]['class']] != frcnn_config.bg:
                             # all GT boxes should be mapped to an anchor box, so we keep track of which anchor box was best
                             if curr_iou > best_iou_for_bbox[bbox_num]:
                                 best_anchor_for_bbox[bbox_num] = [jy, ix, anchor_ratio_idx, anchor_size_idx]
@@ -144,7 +144,7 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
                                 best_dx_for_bbox[bbox_num, :] = [tx, ty, tw, th]
 
                             # we set the anchor to positive if the IOU is >0.7 (it does not matter if there was another better box, it just indicates overlap)
-                            if curr_iou > detection_config.rpn_max_overlap:
+                            if curr_iou > frcnn_config.rpn_max_overlap:
                                 bbox_type = 'pos'
                                 num_anchors_for_bbox[bbox_num] += 1
                                 # we update the regression layer target if this IOU is the best for the current (x,y) and anchor position
@@ -153,7 +153,7 @@ def calc_rpn(img_data, width, height, resized_width, resized_height, img_length_
                                     best_regr = (tx, ty, tw, th)
 
                             # if the IOU is >0.3 and <0.7, it is ambiguous and no included in the objective
-                            if detection_config.rpn_min_overlap < curr_iou < detection_config.rpn_max_overlap:
+                            if frcnn_config.rpn_min_overlap < curr_iou < frcnn_config.rpn_max_overlap:
                                 # gray zone between neg and pos
                                 if bbox_type != 'pos':
                                     bbox_type = 'neutral'
@@ -308,7 +308,7 @@ def augment_and_resize_image(img_data, augment=True):
     assert cols == width
     assert rows == height
     # get image dimensions for resizing
-    (resized_width, resized_height) = get_new_img_size(width, height, detection_config.img_size)
+    (resized_width, resized_height) = get_new_img_size(width, height, frcnn_config.img_size)
     # resize the image so that smallest side has length = 640px
     x_img = cv2.resize(x_img, (resized_width, resized_height), interpolation=cv2.INTER_CUBIC)
     return height, width, resized_height, resized_width, img_data_aug, x_img
@@ -319,7 +319,7 @@ def arrange_dims(x_img, y_rpn_cls, y_rpn_regr):
     x_img = x_img.astype(np.float32)
     x_img = np.transpose(x_img, (2, 0, 1))
     x_img = np.expand_dims(x_img, axis=0)
-    y_rpn_regr[:, y_rpn_regr.shape[1] // 2:, :, :] *= detection_config.std_scaling
+    y_rpn_regr[:, y_rpn_regr.shape[1] // 2:, :, :] *= frcnn_config.std_scaling
     x_img = np.transpose(x_img, (0, 2, 3, 1))
     y_rpn_cls = np.transpose(y_rpn_cls, (0, 2, 3, 1))
     y_rpn_regr = np.transpose(y_rpn_regr, (0, 2, 3, 1))
