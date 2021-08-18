@@ -8,7 +8,7 @@ import ssd_config
 from models.keras_ssd512 import build_model
 
 model = build_model(image_size=ssd_config.img_shape,
-                    n_classes=ssd_config.num_classes,
+                    n_classes=ssd_config.num_classes - 1,
                     mode='inference',
                     l2_regularization=0.0005,
                     scales=ssd_config.scales,
@@ -44,6 +44,7 @@ for file in os.listdir(ssd_config.test_images):
     y_pred = model.predict(np.array(imgs))
     y_pred_thresh = [y_pred[k][y_pred[k, :, 1] > 0.5] for k in range(y_pred.shape[0])]
 
+    print(file)
     print("Predicted boxes:\n")
     print('   class   conf xmin   ymin   xmax   ymax')
     print(y_pred_thresh)
@@ -55,7 +56,7 @@ for file in os.listdir(ssd_config.test_images):
             xmax = box[-2]
             ymax = box[-1]
             color = colors(int(box[0]) * 1 / ssd_config.num_classes)
-            label = '{}: {:.2f}'.format(ssd_config.fruit_labels[int(box[0])], box[1])
+            label = '{:.2f}'.format(box[1])
             # current_axis.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin, color=color, fill=False, linewidth=2))
             # current_axis.text(xmin, ymin, label, size='x-large', color='white', bbox={'facecolor': color, 'alpha': 1.0})
 
@@ -65,7 +66,7 @@ for file in os.listdir(ssd_config.test_images):
             # textOrg = (xmin, ymin)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (0, 0, 0), 2)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (255, 255, 255), -1)
-            # cv2.putText(img, label, textOrg, cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 0), 1)
+            cv2.putText(img, label, (np.float32(xmin - 7), np.float32(ymin)), cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 0), 1)
 
     img = Image.fromarray(img)
     img = img.resize((original_w, original_h))

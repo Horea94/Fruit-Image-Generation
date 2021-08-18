@@ -13,7 +13,7 @@ from utils.DatasetStats import DatasetStats
 stats = DatasetStats()
 
 
-def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True):
+def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True, is_save_mask=True):
     global stats
     local_stats = DatasetStats()
     bkg_image_paths = [config.background_folder + x for x in os.listdir(config.background_folder)]
@@ -23,16 +23,19 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
     try:
         if not os.path.exists(image_save_path):
             os.makedirs(image_save_path)
-        if not os.path.exists(mask_save_path):
+        if not os.path.exists(mask_save_path) and is_save_mask:
             os.makedirs(mask_save_path)
         if not os.path.exists(annotation_save_path):
             os.makedirs(annotation_save_path)
     finally:
         mutex.release()
 
-    for i in range(1, len(config.fruit_labels)):
-        label = config.fruit_labels[i]
-        labels_to_images[label] = glob.glob(config.source_dataset_train_folder + label + '/*')
+    with open(config.labels_file, mode='r') as f:
+        lines = f.readlines()
+        source_labels = [x.strip() for x in lines]
+        for source_label in source_labels:
+            label = source_label.strip('*')
+            labels_to_images[label] = glob.glob(config.source_dataset_train_folder + source_label + '/*')
 
     for index in range(limit):
         skewed_width = math.floor(config.img_shape[1] * random.uniform(config.img_skew_range[0], config.img_skew_range[1]))
@@ -41,7 +44,9 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
         canvas = cv2.imread(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)])
         canvas = cv2.resize(canvas, (skewed_width, skewed_height))
         canvas = enhance_image(canvas)
-        mask_canvas = np.zeros((skewed_height, skewed_width, config.img_shape[2]), dtype=np.uint8)
+        mask_canvas = None
+        if is_save_mask:
+            mask_canvas = np.zeros((skewed_height, skewed_width, config.img_shape[2]), dtype=np.uint8)
         anchors = []
         # fruits_in_image = random.randint(1, 6)
         fruits_in_image = 15
@@ -51,40 +56,69 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
             fruit_image_path = labels_to_images[fruit_label][random.randint(0, len(labels_to_images[fruit_label]) - 1)]
             fruit_img_size = random.randint(config.min_fruit_size, config.max_fruit_size)
             rotate_index = random.randint(0, 3)
-            fruit_image = cv2.imread(fruit_image_path)
-            fruit_image = cv2.resize(fruit_image, (fruit_img_size, fruit_img_size))
-            if rotate_index < 3:
-                fruit_image = cv2.rotate(fruit_image, rotateCode=rotation_angles[rotate_index])
-            fruit_mask = build_mask(fruit_image)
-            non_empty_cols = np.where(np.amax(fruit_mask, axis=0) > 0)[0]
-            non_empty_rows = np.where(np.amax(fruit_mask, axis=1) > 0)[0]
-            top_most_px = min(non_empty_rows)
-            bottom_most_px = max(non_empty_rows)
-            left_most_px = min(non_empty_cols)
-            right_most_px = max(non_empty_cols)
-            fruit_mask = fruit_mask[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
-            fruit_image = fruit_image[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
-            w, h = fruit_image.shape[:2]
-            if min(w, h) < config.min_fruit_size or max(w, h) > config.max_fruit_size:
-                ratio = min(config.min_fruit_size / min(w, h), config.max_fruit_size / max(w, h))
-                fruit_image = cv2.resize(fruit_image, (int(h * ratio), int(w * ratio)))
+            initial_fruit_image = cv2.imread(fruit_image_path)
+            successfully_added_img = False
+            attempts = 3
+            while not successfully_added_img and attempts > 0:
+                fruit_image = cv2.resize(initial_fruit_image, (fruit_img_size, fruit_img_size))
+                if rotate_index < 3:
+                    fruit_image = cv2.rotate(fruit_image, rotateCode=rotation_angles[rotate_index])
                 fruit_mask = build_mask(fruit_image)
-            fruit_image = enhance_image(fruit_image)
-            # pad the image by a percentage so the resulting bounding box is slightly bigger than the fruit
-            w, h = fruit_image.shape[:2]
-            fruit_image = cv2.copyMakeBorder(fruit_image, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
-                                             right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
-            fruit_mask = cv2.copyMakeBorder(fruit_mask, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
-                                             right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
-            if not is_binary_mask:
-                fruit_mask = color_mask(fruit_mask, config.color_map[fruit_label_index])
-            successfully_added_img, w, h = add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
-            if successfully_added_img:
-                update_stats(local_stats, h, w)
+                non_empty_cols = np.where(np.amax(fruit_mask, axis=0) > 0)[0]
+                non_empty_rows = np.where(np.amax(fruit_mask, axis=1) > 0)[0]
+                top_most_px = min(non_empty_rows)
+                bottom_most_px = max(non_empty_rows)
+                left_most_px = min(non_empty_cols)
+                right_most_px = max(non_empty_cols)
+                fruit_mask = fruit_mask[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
+                fruit_image = fruit_image[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
+                horizontal_crop_chance = random.randint(0, 99)
+                vertical_crop_chance = random.randint(0, 99)
+                #  30% chance to delete the left or right part of the image; up to 30% of the image width
+                if horizontal_crop_chance < 30:
+                    crop_length = random.randint(1, math.floor(fruit_image.shape[0] * 0.3))
+                    if horizontal_crop_chance % 2 == 0:
+                        fruit_image = fruit_image[crop_length:, :]
+                        fruit_mask = fruit_mask[crop_length:, :]
+                    else:
+                        fruit_image = fruit_image[:fruit_image.shape[0] - crop_length, :]
+                        fruit_mask = fruit_mask[:fruit_mask.shape[0] - crop_length, :]
+
+                if vertical_crop_chance < 30:
+                    crop_length = random.randint(1, math.floor(fruit_image.shape[1] * 0.3))
+                    if vertical_crop_chance % 2 == 0:
+                        fruit_image = fruit_image[:, crop_length:]
+                        fruit_mask = fruit_mask[:, crop_length:]
+                    else:
+                        fruit_image = fruit_image[:, :fruit_image.shape[1] - crop_length]
+                        fruit_mask = fruit_mask[:, :fruit_mask.shape[1] - crop_length]
+                w, h = fruit_image.shape[:2]
+                if min(w, h) < config.min_fruit_size or max(w, h) > config.max_fruit_size:
+                    ratio = min(config.min_fruit_size / min(w, h), config.max_fruit_size / max(w, h))
+                    fruit_image = cv2.resize(fruit_image, (int(h * ratio), int(w * ratio)))
+                    fruit_mask = build_mask(fruit_image)
+                fruit_image = enhance_image(fruit_image)
+                # pad the image by a percentage so the resulting bounding box is slightly bigger than the fruit
+                w, h = fruit_image.shape[:2]
+                fruit_image = cv2.copyMakeBorder(fruit_image, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
+                                                 right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
+                fruit_mask = cv2.copyMakeBorder(fruit_mask, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
+                                                right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
+                if not is_binary_mask:
+                    fruit_mask = color_mask(fruit_mask, config.color_map[fruit_label_index])
+                successfully_added_img, w, h = add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
+                if successfully_added_img:
+                    update_stats(local_stats, h, w)
+                else:
+                    attempts -= 1
+                    fruit_img_size = round_number(fruit_img_size * 0.8)
+                    if fruit_img_size < config.min_fruit_size:
+                        break
         canvas = cv2.resize(canvas, (config.img_shape[1], config.img_shape[0]))
-        mask_canvas = cv2.resize(mask_canvas, (config.img_shape[1], config.img_shape[0]))
         cv2.imwrite(image_save_path + str(img_count) + '.png', canvas)
-        cv2.imwrite(mask_save_path + str(img_count) + '.png', mask_canvas)
+        if mask_canvas is not None:
+            mask_canvas = cv2.resize(mask_canvas, (config.img_shape[1], config.img_shape[0]))
+            cv2.imwrite(mask_save_path + str(img_count) + '.png', mask_canvas)
         anchors = resize_bounding_boxes(anchors, skewed_width, skewed_height, config.img_shape[1], config.img_shape[0])
         write_annotation_to_file(annotation_save_path, anchors, img_count, simple_format=simple_annotation_format)
         print("Thread %d saved image %d.png" % (thread_id, img_count))
@@ -158,9 +192,9 @@ def enhance_image(canvas, contrast=True, brightness=True):
     brightness_factor = 0
     contrast_factor = 1.0
     if contrast:
-        contrast_factor = random.random() * 0.4 + 0.8
+        contrast_factor = random.random() * 0.8 + 0.6
     if brightness:
-        brightness_factor = random.random() * 0.4 + 0.8
+        brightness_factor = random.random() * 0.8 + 0.6
     canvas = cv2.convertScaleAbs(canvas, alpha=contrast_factor, beta=brightness_factor)
     return canvas
 
@@ -188,15 +222,16 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
         # if no free space is found, the image is not added
         x = random.randint(min_x // 2, max_x)
         y = random.randint(min_y // 2, max_y)
-        done = not is_overlap_between_new_image_and_old_images(((x, y), (x, y + fruit_image.shape[1]), (x + fruit_image.shape[0], y), (x + fruit_image.shape[0], y + fruit_image.shape[1])), anchors)
+        done = not is_overlap_between_new_image_and_old_images(((x, y),
+                                                                (x, y + fruit_image.shape[1]),
+                                                                (x + fruit_image.shape[0], y),
+                                                                (x + fruit_image.shape[0], y + fruit_image.shape[1])),
+                                                               anchors)
         attempts -= 1
     if done:
-        for i in range(fruit_image.shape[0]):
-            for j in range(fruit_image.shape[1]):
-                if 0 <= x + i < canvas.shape[0] and 0 <= y + j < canvas.shape[1]:
-                    if (fruit_mask[i][j] == 255).all():
-                        canvas[x + i][y + j] = fruit_image[i][j]
-                        canvas_mask[x + i][y + j] = fruit_mask[i][j]
+        add_image_to_canvas(canvas, fruit_image, fruit_mask, x, y)
+        if canvas_mask is not None:
+            add_image_to_canvas(canvas_mask, fruit_mask, fruit_mask, x, y)
         # if the fruit is only partially included in the image, set the anchor bounds to the edge of the canvas
         upper_left = (max(x, 0), max(y, 0))
         lower_left = (max(x, 0), min(y + fruit_image.shape[1], canvas.shape[1] - 1))
@@ -204,6 +239,14 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
         lower_right = (min(x + fruit_image.shape[0], canvas.shape[0] - 1), min(y + fruit_image.shape[1], canvas.shape[1] - 1))
         anchors.append((upper_left, lower_left, upper_right, lower_right, fruit_label))
     return done, fruit_image.shape[0], fruit_image.shape[1]
+
+
+def add_image_to_canvas(canvas, fruit_image, fruit_mask, x, y):
+    for i in range(fruit_image.shape[0]):
+        for j in range(fruit_image.shape[1]):
+            if 0 <= x + i < canvas.shape[0] and 0 <= y + j < canvas.shape[1]:
+                if (fruit_mask[i][j] == 255).all():
+                    canvas[x + i][y + j] = fruit_image[i][j]
 
 
 def is_overlap_between_new_image_and_old_images(img_coordinates, other_images):
@@ -284,8 +327,10 @@ if __name__ == "__main__":
     if image_limit > 0:
         max_images_per_thread = int(math.ceil(image_limit / config.total_threads))
         for index in range(config.total_threads):
-            thread = threading.Thread(target=build_dataset, args=(config.train_image_folder, config.train_mask_folder, config.train_annotation_folder,
-                                                                  index, config.total_threads, min(max_images_per_thread, image_limit), train_mutex))
+            thread = threading.Thread(target=build_dataset,
+                                      args=(config.train_image_folder, config.train_mask_folder, config.train_annotation_folder,
+                                            index, config.total_threads, min(max_images_per_thread, image_limit), train_mutex),
+                                      kwargs={'is_save_mask': False})
             image_limit -= max_images_per_thread
             thrd_list.append(thread)
             thread.start()
@@ -294,8 +339,10 @@ if __name__ == "__main__":
     if image_limit > 0:
         max_images_per_thread = int(math.ceil(image_limit / config.total_threads))
         for index in range(config.total_threads):
-            thread = threading.Thread(target=build_dataset, args=(config.valid_image_folder, config.valid_mask_folder, config.valid_annotation_folder,
-                                                                  index, config.total_threads, min(max_images_per_thread, image_limit), valid_mutex))
+            thread = threading.Thread(target=build_dataset,
+                                      args=(config.valid_image_folder, config.valid_mask_folder, config.valid_annotation_folder,
+                                            index, config.total_threads, min(max_images_per_thread, image_limit), valid_mutex),
+                                      kwargs={'is_save_mask': False})
             image_limit -= max_images_per_thread
             thrd_list.append(thread)
             thread.start()

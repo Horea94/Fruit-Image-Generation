@@ -50,6 +50,27 @@ def get_previous_epoch_and_loss(filename):
     return epoch, loss
 
 
+def lookup_or_create_h5_dataset(h5_path, imgs_path, annot_path, labels):
+    if os.path.exists(h5_path):
+        dataset = DataGenerator(load_images_into_memory=False, hdf5_dataset_path=h5_path)
+    else:
+        dataset = DataGenerator(load_images_into_memory=False, hdf5_dataset_path=None)
+        dataset.parse_csv(images_dir=imgs_path,
+                          annotations_dir=annot_path,
+                          all_labels=labels,
+                          input_format=['xmin', 'ymin', 'xmax', 'ymax', 'class_id'],
+                          include_classes='all')
+        # Optional: Convert the dataset into an HDF5 dataset. This will require more disk space, but will
+        # speed up the training. Doing this is not relevant in case you activated the `load_images_into_memory`
+        # option in the constructor, because in that cas the images are in memory already anyway. If you don't
+        # want to create HDF5 datasets, comment out the subsequent two function calls.
+        dataset.create_hdf5_dataset(file_path=h5_path,
+                                    resize=False,
+                                    variable_image_size=True,
+                                    verbose=True)
+    return dataset
+
+
 adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 ssd_loss = SSDLoss(neg_pos_ratio=3, alpha=1.0)
 
@@ -59,8 +80,10 @@ if ssd_config.use_weights:
     start_epoch, val_loss = get_previous_epoch_and_loss(ssd_config.ssd_training_log)
     model = load_model(ssd_config.ssd_model_path, custom_objects={'AnchorBoxes': AnchorBoxes, 'L2Normalization': L2Normalization, 'compute_loss': ssd_loss.compute_loss})
 else:
+    if os.path.exists(ssd_config.ssd_training_log):
+        os.remove(ssd_config.ssd_training_log)
     model = build_model(image_size=ssd_config.img_shape,
-                        n_classes=ssd_config.num_classes,
+                        n_classes=ssd_config.num_classes - 1,  # num_classes includes the background and build_model requires only the number of positive classes
                         mode='training',
                         l2_regularization=0.0005,
                         scales=ssd_config.scales,
@@ -79,37 +102,10 @@ final_epoch = start_epoch + ssd_config.epochs
 
 model.compile(optimizer=adam, loss=ssd_loss.compute_loss)
 
-train_dataset = DataGenerator(load_images_into_memory=False, hdf5_dataset_path=None)
-val_dataset = DataGenerator(load_images_into_memory=False, hdf5_dataset_path=None)
+train_dataset = lookup_or_create_h5_dataset(h5_path=ssd_config.ssd_train_h5_data, imgs_path=ssd_config.train_image_folder, annot_path=ssd_config.train_annotation_folder, labels=ssd_config.fruit_labels)
+val_dataset = lookup_or_create_h5_dataset(h5_path=ssd_config.ssd_valid_h5_data, imgs_path=ssd_config.valid_image_folder, annot_path=ssd_config.valid_annotation_folder, labels=ssd_config.fruit_labels)
 
-train_dataset.parse_csv(images_dir=ssd_config.train_image_folder,
-                        annotations_dir=ssd_config.train_annotation_folder,
-                        all_labels=ssd_config.fruit_labels,
-                        input_format=['xmin', 'ymin', 'xmax', 'ymax', 'class_id'],
-                        include_classes='all')
-
-val_dataset.parse_csv(images_dir=ssd_config.valid_image_folder,
-                      annotations_dir=ssd_config.valid_annotation_folder,
-                      all_labels=ssd_config.fruit_labels,
-                      input_format=['xmin', 'ymin', 'xmax', 'ymax', 'class_id'],
-                      include_classes='all')
-
-# Optional: Convert the dataset into an HDF5 dataset. This will require more disk space, but will
-# speed up the training. Doing this is not relevant in case you activated the `load_images_into_memory`
-# option in the constructor, because in that cas the images are in memory already anyway. If you don't
-# want to create HDF5 datasets, comment out the subsequent two function calls.
-
-train_dataset.create_hdf5_dataset(file_path=ssd_config.dataset_root + 'training_fruits.h5',
-                                  resize=False,
-                                  variable_image_size=True,
-                                  verbose=True)
-
-val_dataset.create_hdf5_dataset(file_path=ssd_config.dataset_root + 'valid_fruits.h5',
-                                resize=False,
-                                variable_image_size=True,
-                                verbose=True)
-#
-# # Get the number of samples in the training and validations datasets.
+# Get the number of samples in the training and validations datasets.
 train_dataset_size = train_dataset.get_dataset_size()
 val_dataset_size = val_dataset.get_dataset_size()
 #
@@ -145,7 +141,7 @@ predictor_sizes = [model.get_layer('conv4_3_norm_mbox_conf').output_shape[1:3],
 
 ssd_input_encoder = SSDInputEncoder(img_height=ssd_config.img_shape[0],
                                     img_width=ssd_config.img_shape[1],
-                                    n_classes=ssd_config.num_classes,
+                                    n_classes=ssd_config.num_classes - 1,
                                     predictor_sizes=predictor_sizes,
                                     scales=ssd_config.scales,
                                     aspect_ratios_global=None,
@@ -159,8 +155,6 @@ ssd_input_encoder = SSDInputEncoder(img_height=ssd_config.img_shape[0],
                                     pos_iou_threshold=0.5,
                                     neg_iou_limit=0.3,
                                     normalize_coords=ssd_config.normalize_coords)
-
-# 6: Create the generator handles that will be passed to Keras' `fit_generator()` function.
 
 train_generator = train_dataset.generate(batch_size=ssd_config.batch_size,
                                          shuffle=True,
