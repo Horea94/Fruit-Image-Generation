@@ -1,56 +1,73 @@
-import numpy as np
+# TODO: Copy this file and name it 'detection_config.py'
+# TODO: Replace the project_root with the path to the 'Fruit-Experimental' folder
+project_root = 'C:/Fruit-Experimental/'
 
-project_root = '../../'
-
-# these folders are the source folders from the Fruits-360 repo
 source_dataset_train_folder = project_root + 'Training/'
 source_dataset_test_folder = project_root + 'Test/'
 
-background_folder = project_root + 'Dataset/Backgrounds/'
-# in here the build_detection_dataset.py script will dump the degerated images
-# these folders will further serve as input for training/testing
-train_folder = project_root + 'Dataset/Train/'
-test_folder = project_root + 'Dataset/Test/'
-image_folder = train_folder + 'images/'
-mask_folder = train_folder + 'masks/'
-annotation_folder = train_folder + 'annotations/'
+# if you want to add your own images and include them in the detection/segmentation dataset generation
+# set this variable to the path towards the folder containing the source images structured as follows:
+# - Folder/
+#   - Label 1/
+#     - img1.jpg
+#     - img2.jpg
+#   - Label 2/
+#     - img1.jpg
+#     - img2.jpg
+extra_dataset_train_folder = project_root + 'Dataset/Extra_Images/'
+dataset_root = project_root + 'Dataset/'
+background_folder = dataset_root + 'Backgrounds/'
+train_folder = dataset_root + 'Train/'
+valid_folder = dataset_root + 'Validation/'
+test_folder = dataset_root + 'Test/'
+train_image_folder = train_folder + 'images/'
+valid_image_folder = valid_folder + 'images/'
+train_mask_folder = train_folder + 'masks/'
+valid_mask_folder = valid_folder + 'masks/'
+train_annotation_folder = train_folder + 'annotations/'
+valid_annotation_folder = valid_folder + 'annotations/'
 test_images = test_folder + 'images/'
 test_annotations = test_folder + 'annotations/'
-output_folder = project_root + 'Dataset/Output/'
-models_folder = 'models/'
-labels_file = 'labels.txt
+output_folder = dataset_root + 'Output/'
+models_folder = project_root + 'src/object_detection/trained/'
+labels_file = project_root + 'src/object_detection/labels.txt'
 
 ################################ Dataset Generation ################################
 
 with open(labels_file, mode='r') as f:
-    fruit_labels = [x.strip() for x in f.readlines()]
+    lines = f.readlines()
+    fruit_labels = [x.strip() for x in lines]
 fruit_labels.sort()
 bg = 'Background'
-fruit_labels = fruit_labels + [bg]
+fruit_labels = [bg] + fruit_labels
 num_classes = len(fruit_labels)
-class_to_color = {fruit_labels[v]: np.random.randint(0, 255, 3) for v in range(num_classes)}
+# class_to_color = {fruit_labels[v]: np.random.randint(0, 255, 3) for v in range(num_classes)}
+class_to_color = {fruit_labels[v]: (0, 0, 0) for v in range(num_classes)}
 color_map = {0: (0, 0, 0),
              1: (255, 255, 255)}
 
-img_size = 768
-img_shape = (768, 1024, 3)  # height, width, channels
+img_skew_range = (0.7, 1.3)  # randomly select two values from this interval to multiply the width and height of the image
+# this adds distortion in the dataset so that the model can work on images of various sizes
+img_shape = (512, 512, 3)  # height, width, channels
 
 # min/max width and height of images that are used to build the training data for each class
-min_fruit_size = 120
-max_fruit_size = 500
+min_fruit_size = 30
+max_fruit_size = 300
 
 overlap_factor = 0.0
 bounding_box_padding = 0.05  # percentage indicating how much extra space should be added to the
 # bounding box; this is done to enlarge the bounding box surrounding a fruit so it includes background as well
 
-mask_threshold = 246  # threshold used for generating masks
+mask_threshold = 248  # threshold used for generating masks
 # number of images to generate in the segmentation dataset
 # for each generated image, the corresponding mask is also generated
 # so the total number of generated images is 2 * dataset_generation_limit
-dataset_generation_limit = 300
+train_dataset_generation_limit = 300
+valid_dataset_generation_limit = 50
 # number of threads that build the dataset
 # the load is balanced among the threads
 total_threads = 5
+########################################################################################
 
 ################################# Training Parameters #################################
 batch_size = 2
