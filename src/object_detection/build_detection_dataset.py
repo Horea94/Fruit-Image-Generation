@@ -72,26 +72,7 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
                 right_most_px = max(non_empty_cols)
                 fruit_mask = fruit_mask[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
                 fruit_image = fruit_image[top_most_px:bottom_most_px + 1, left_most_px:right_most_px + 1]
-                horizontal_crop_chance = random.randint(0, 99)
-                vertical_crop_chance = random.randint(0, 99)
-                #  30% chance to delete the left or right part of the image; up to 30% of the image width
-                if horizontal_crop_chance < 30:
-                    crop_length = random.randint(1, math.floor(fruit_image.shape[0] * 0.3))
-                    if horizontal_crop_chance % 2 == 0:
-                        fruit_image = fruit_image[crop_length:, :]
-                        fruit_mask = fruit_mask[crop_length:, :]
-                    else:
-                        fruit_image = fruit_image[:fruit_image.shape[0] - crop_length, :]
-                        fruit_mask = fruit_mask[:fruit_mask.shape[0] - crop_length, :]
-
-                if vertical_crop_chance < 30:
-                    crop_length = random.randint(1, math.floor(fruit_image.shape[1] * 0.3))
-                    if vertical_crop_chance % 2 == 0:
-                        fruit_image = fruit_image[:, crop_length:]
-                        fruit_mask = fruit_mask[:, crop_length:]
-                    else:
-                        fruit_image = fruit_image[:, :fruit_image.shape[1] - crop_length]
-                        fruit_mask = fruit_mask[:, :fruit_mask.shape[1] - crop_length]
+                fruit_image, fruit_mask = apply_partial_cropping(fruit_image, fruit_mask, probability=40, crop_ratio=0.3)
                 w, h = fruit_image.shape[:2]
                 if min(w, h) < config.min_fruit_size or max(w, h) > config.max_fruit_size:
                     ratio = min(config.min_fruit_size / min(w, h), config.max_fruit_size / max(w, h))
@@ -100,10 +81,18 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
                 fruit_image = enhance_image(fruit_image)
                 # pad the image by a percentage so the resulting bounding box is slightly bigger than the fruit
                 w, h = fruit_image.shape[:2]
-                fruit_image = cv2.copyMakeBorder(fruit_image, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
-                                                 right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
-                fruit_mask = cv2.copyMakeBorder(fruit_mask, top=int(h * config.bounding_box_padding), bottom=int(h * config.bounding_box_padding), left=int(w * config.bounding_box_padding),
-                                                right=int(w * config.bounding_box_padding), borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
+                fruit_image = cv2.copyMakeBorder(fruit_image,
+                                                 top=min(int(h * config.bounding_box_padding), config.max_padding),
+                                                 bottom=min(int(h * config.bounding_box_padding), config.max_padding),
+                                                 left=min(int(w * config.bounding_box_padding), config.max_padding),
+                                                 right=min(int(w * config.bounding_box_padding), config.max_padding),
+                                                 borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
+                fruit_mask = cv2.copyMakeBorder(fruit_mask,
+                                                top=min(int(h * config.bounding_box_padding), config.max_padding),
+                                                bottom=min(int(h * config.bounding_box_padding), config.max_padding),
+                                                left=min(int(w * config.bounding_box_padding), config.max_padding),
+                                                right=min(int(w * config.bounding_box_padding), config.max_padding),
+                                                borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0])
                 if not is_binary_mask:
                     fruit_mask = color_mask(fruit_mask, config.color_map[fruit_label_index])
                 successfully_added_img, w, h = add_image_and_mask_to_canvas(canvas, fruit_image, mask_canvas, fruit_mask, anchors, fruit_label)
@@ -134,6 +123,30 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
         stats.minimum_width_img_h = local_stats.minimum_width_img_h
         stats.minimum_width_img_w = local_stats.minimum_width_img_w
     mutex.release()
+
+
+def apply_partial_cropping(fruit_image, fruit_mask, probability=40, crop_ratio=0.3):
+    horizontal_crop_chance = random.randint(0, 99)
+    vertical_crop_chance = random.randint(0, 99)
+    # delete top/bottom/left/right part of the image with a probability; up to 30% of the image width
+    # don't crop both width and height
+    if horizontal_crop_chance < probability <= vertical_crop_chance:
+        crop_length = random.randint(1, math.floor(fruit_image.shape[0] * crop_ratio))
+        if horizontal_crop_chance % 2 == 0:
+            fruit_image = fruit_image[crop_length:, :]
+            fruit_mask = fruit_mask[crop_length:, :]
+        else:
+            fruit_image = fruit_image[:fruit_image.shape[0] - crop_length, :]
+            fruit_mask = fruit_mask[:fruit_mask.shape[0] - crop_length, :]
+    if vertical_crop_chance < probability <= horizontal_crop_chance:
+        crop_length = random.randint(1, math.floor(fruit_image.shape[1] * crop_ratio))
+        if vertical_crop_chance % 2 == 0:
+            fruit_image = fruit_image[:, crop_length:]
+            fruit_mask = fruit_mask[:, crop_length:]
+        else:
+            fruit_image = fruit_image[:, :fruit_image.shape[1] - crop_length]
+            fruit_mask = fruit_mask[:, :fruit_mask.shape[1] - crop_length]
+    return fruit_image, fruit_mask
 
 
 def update_stats(stats_param, h, w):
@@ -242,11 +255,17 @@ def add_image_and_mask_to_canvas(canvas, fruit_image, canvas_mask, fruit_mask, a
 
 
 def add_image_to_canvas(canvas, fruit_image, fruit_mask, x, y):
-    for i in range(fruit_image.shape[0]):
-        for j in range(fruit_image.shape[1]):
-            if 0 <= x + i < canvas.shape[0] and 0 <= y + j < canvas.shape[1]:
-                if (fruit_mask[i][j] == 255).all():
-                    canvas[x + i][y + j] = fruit_image[i][j]
+    if x < 0:
+        adjust_x = -x
+    else:
+        adjust_x = 0
+    if y < 0:
+        adjust_y = -y
+    else:
+        adjust_y = 0
+    canvas_x = adjust_x + x
+    canvas_y = adjust_y + y
+    cv2.copyTo(fruit_image[adjust_x:, adjust_y:, :], fruit_mask[adjust_x:, adjust_y:, :], canvas[canvas_x:canvas_x + fruit_image.shape[0], canvas_y:canvas_y + fruit_image.shape[1], :])
 
 
 def is_overlap_between_new_image_and_old_images(img_coordinates, other_images):

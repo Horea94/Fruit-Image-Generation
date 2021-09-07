@@ -11,6 +11,7 @@ from keras_loss_function.keras_ssd_loss import SSDLoss
 from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
 from keras_layers.keras_layer_DecodeDetections import DecodeDetections
 from keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
+from ssd.custom_callbacks.MemCleanerCheckpoint import MemCleanerCheckpoint
 from ssd.custom_callbacks.MyModelCheckpoint import MyModelCheckpoint
 from ssd.keras_layers.keras_layer_L2Normalization import L2Normalization
 
@@ -71,7 +72,7 @@ def lookup_or_create_h5_dataset(h5_path, imgs_path, annot_path, labels):
     return dataset
 
 
-adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+adam = Adam(lr=0.00005, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 ssd_loss = SSDLoss(neg_pos_ratio=3, alpha=1.0)
 
 start_epoch = 0
@@ -85,7 +86,7 @@ else:
     model = build_model(image_size=ssd_config.img_shape,
                         n_classes=ssd_config.num_classes - 1,  # num_classes includes the background and build_model requires only the number of positive classes
                         mode='training',
-                        l2_regularization=0.0005,
+                        l2_regularization=0.001,
                         scales=ssd_config.scales,
                         aspect_ratios_global=None,
                         aspect_ratios_per_layer=ssd_config.aspect_ratios_per_layer,
@@ -100,7 +101,7 @@ else:
 
 final_epoch = start_epoch + ssd_config.epochs
 
-model.compile(optimizer=adam, loss=ssd_loss.compute_loss)
+model.compile(optimizer=adam, loss=ssd_loss.compute_loss, run_eagerly=True)
 
 train_dataset = lookup_or_create_h5_dataset(h5_path=ssd_config.ssd_train_h5_data, imgs_path=ssd_config.train_image_folder, annot_path=ssd_config.train_annotation_folder, labels=ssd_config.fruit_labels)
 val_dataset = lookup_or_create_h5_dataset(h5_path=ssd_config.ssd_valid_h5_data, imgs_path=ssd_config.valid_image_folder, annot_path=ssd_config.valid_annotation_folder, labels=ssd_config.fruit_labels)
@@ -192,16 +193,19 @@ early_stopping = EarlyStopping(monitor='val_loss',
 
 reduce_learning_rate = ReduceLROnPlateau(monitor='val_loss',
                                          factor=0.2,
-                                         patience=5,
+                                         patience=3,
                                          verbose=1,
                                          min_delta=0.001,
                                          cooldown=0,
                                          min_lr=0.00001)
 
+mem_cleaner = MemCleanerCheckpoint()
+
 callbacks = [model_checkpoint,
              csv_logger,
              early_stopping,
-             reduce_learning_rate]
+             reduce_learning_rate,
+             mem_cleaner]
 
 history = model.fit(train_generator,
                     steps_per_epoch=math.ceil(train_dataset_size / ssd_config.batch_size),

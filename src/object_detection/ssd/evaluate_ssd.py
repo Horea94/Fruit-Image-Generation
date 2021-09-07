@@ -37,7 +37,7 @@ evaluator = Evaluator(model=model,
 
 results = evaluator(img_height=ssd_config.img_shape[0],
                     img_width=ssd_config.img_shape[1],
-                    batch_size=4,
+                    batch_size=ssd_config.batch_size,
                     data_generator_mode='resize',
                     round_confidences=False,
                     matching_iou_threshold=0.5,

@@ -66,7 +66,7 @@ for file in os.listdir(ssd_config.test_images):
             # textOrg = (xmin, ymin)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (0, 0, 0), 2)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (255, 255, 255), -1)
-            cv2.putText(img, label, (np.float32(xmin - 7), np.float32(ymin)), cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 0), 1)
+            cv2.putText(img, label, (np.float32(xmin - 10), np.float32(ymin - 10)), cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 0), 2)
 
     img = Image.fromarray(img)
     img = img.resize((original_w, original_h))
