@@ -13,7 +13,7 @@ from utils.DatasetStats import DatasetStats
 stats = DatasetStats()
 
 
-def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_id, total_threads, limit, mutex, is_binary_mask=True, simple_annotation_format=True, is_save_mask=True):
+def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_id, total_threads, limit, mutex, offset=0, is_binary_mask=True, simple_annotation_format=True, is_save_mask=True):
     global stats
     local_stats = DatasetStats()
     bkg_image_paths = [config.background_folder + x for x in os.listdir(config.background_folder)]
@@ -40,7 +40,7 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
     for index in range(limit):
         skewed_width = math.floor(config.img_shape[1] * random.uniform(config.img_skew_range[0], config.img_skew_range[1]))
         skewed_height = math.floor(config.img_shape[0] * random.uniform(config.img_skew_range[0], config.img_skew_range[1]))
-        img_count = index * total_threads + thread_id
+        img_count = index * total_threads + thread_id + offset
         canvas = cv2.imread(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)])
         canvas = cv2.resize(canvas, (skewed_width, skewed_height))
         canvas = enhance_image(canvas)
@@ -48,9 +48,7 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
         if is_save_mask:
             mask_canvas = np.zeros((skewed_height, skewed_width, config.img_shape[2]), dtype=np.uint8)
         anchors = []
-        # fruits_in_image = random.randint(1, 6)
-        fruits_in_image = 15
-        for i in range(fruits_in_image):
+        for i in range(config.fruits_in_image):
             fruit_label_index = random.randint(1, len(config.fruit_labels) - 1)
             fruit_label = config.fruit_labels[fruit_label_index]
             fruit_image_path = labels_to_images[fruit_label][random.randint(0, len(labels_to_images[fruit_label]) - 1)]
@@ -349,7 +347,7 @@ if __name__ == "__main__":
             thread = threading.Thread(target=build_dataset,
                                       args=(config.train_image_folder, config.train_mask_folder, config.train_annotation_folder,
                                             index, config.total_threads, min(max_images_per_thread, image_limit), train_mutex),
-                                      kwargs={'is_save_mask': False})
+                                      kwargs={'is_save_mask': False, 'offset': config.train_index_offset})
             image_limit -= max_images_per_thread
             thrd_list.append(thread)
             thread.start()
@@ -361,7 +359,7 @@ if __name__ == "__main__":
             thread = threading.Thread(target=build_dataset,
                                       args=(config.valid_image_folder, config.valid_mask_folder, config.valid_annotation_folder,
                                             index, config.total_threads, min(max_images_per_thread, image_limit), valid_mutex),
-                                      kwargs={'is_save_mask': False})
+                                      kwargs={'is_save_mask': False, 'offset': config.valid_index_offset})
             image_limit -= max_images_per_thread
             thrd_list.append(thread)
             thread.start()
