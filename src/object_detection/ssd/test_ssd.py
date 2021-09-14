@@ -32,6 +32,15 @@ np.set_printoptions(precision=2, suppress=True, linewidth=90)
 
 colors = plt.cm.get_cmap('viridis', ssd_config.num_classes)  # Set the colors for the bounding boxes
 
+fruit_count_per_img = {}
+for file in os.listdir(ssd_config.test_annotations):
+    with open(ssd_config.test_annotations + file, mode='r') as f:
+        lines = f.readlines()
+        filename = lines[0].strip()
+        lines = lines[1:]
+        fruit_count_per_img[filename] = len(lines)
+
+global_acc = 0
 
 for file in os.listdir(ssd_config.test_images):
     imgs = []
@@ -42,7 +51,7 @@ for file in os.listdir(ssd_config.test_images):
     img = np.asarray(img, dtype=np.uint8)
     imgs.append(img)
     y_pred = model.predict(np.array(imgs))
-    y_pred_thresh = [y_pred[k][y_pred[k, :, 1] > 0.5] for k in range(y_pred.shape[0])]
+    y_pred_thresh = [y_pred[k][y_pred[k, :, 1] >= 0.5] for k in range(y_pred.shape[0])]
 
     print(file)
     print("Predicted boxes:\n")
@@ -60,14 +69,19 @@ for file in os.listdir(ssd_config.test_images):
             # current_axis.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin, color=color, fill=False, linewidth=2))
             # current_axis.text(xmin, ymin, label, size='x-large', color='white', bbox={'facecolor': color, 'alpha': 1.0})
 
-            cv2.rectangle(img, (xmin, ymin), (xmax, ymax), color, 2)
+            cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (255, 0, 0), 5)
 
             # (retval, baseLine) = cv2.getTextSize(label, cv2.FONT_HERSHEY_COMPLEX, 0.4, 1)
             # textOrg = (xmin, ymin)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (0, 0, 0), 2)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (255, 255, 255), -1)
-            cv2.putText(img, label, (np.float32(xmin - 10), np.float32(ymin - 10)), cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 0), 2)
+            cv2.putText(img, label, (np.float32(xmin - 10), np.float32(ymin - 10)), cv2.FONT_HERSHEY_DUPLEX, 0.9, (255, 0, 0), 2)
+
+    if file in fruit_count_per_img:
+        global_acc += (1 - abs(len(y_pred_thresh[0]) - fruit_count_per_img[file])/fruit_count_per_img[file])
 
     img = Image.fromarray(img)
     img = img.resize((original_w, original_h))
     img.save(ssd_config.output_folder + file)
+
+print('Acc: %f' % (global_acc/len(fruit_count_per_img)))

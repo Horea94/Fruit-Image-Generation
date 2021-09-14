@@ -43,7 +43,7 @@ results = evaluator(img_height=ssd_config.img_shape[0],
                     matching_iou_threshold=0.5,
                     border_pixels='include',
                     sorting_algorithm='quicksort',
-                    average_precision_mode='sample',
+                    average_precision_mode='integrate',
                     num_recall_points=11,
                     ignore_neutral_boxes=True,
                     return_precisions=True,
@@ -59,10 +59,10 @@ print()
 print("{:<14}{:<6}{}".format('', 'mAP', round(mean_average_precision, 3)))
 
 plt.figure(figsize=(10, 10))
-plt.plot(recalls[1], precisions[1], color='blue', linewidth=1.0)
-plt.xlabel('recall', fontsize=14)
-plt.ylabel('precision', fontsize=14)
-plt.xticks(np.linspace(0, 1, 11))
-plt.yticks(np.linspace(0, 1, 11))
+plt.plot(recalls[1], precisions[1], color='blue', linewidth=1.5)
+plt.xlabel('recall', fontsize=16)
+plt.ylabel('precision', fontsize=16)
+plt.xticks(np.linspace(0, 1, 11), fontsize=16)
+plt.yticks(np.linspace(0, 1, 11), fontsize=16)
 plt.title("{}, AP: {:.3f}".format(ssd_config.fruit_labels[1], average_precisions[1]), fontsize=16)
 plt.show()
