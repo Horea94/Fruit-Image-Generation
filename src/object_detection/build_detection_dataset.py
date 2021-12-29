@@ -38,12 +38,16 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
             labels_to_images[label] = glob.glob(config.source_dataset_train_folder + source_label + '/*')
 
     for index in range(limit):
-        skewed_width = math.floor(config.img_shape[1] * random.uniform(config.img_skew_range[0], config.img_skew_range[1]))
-        skewed_height = math.floor(config.img_shape[0] * random.uniform(config.img_skew_range[0], config.img_skew_range[1]))
+        skew_factor_w = random.uniform(config.img_skew_range[0], config.img_skew_range[1])
+        skew_factor_h = random.uniform(config.img_skew_range[0], config.img_skew_range[1])
+        skewed_width = math.floor(config.img_shape[1] * skew_factor_w)
+        skewed_height = math.floor(config.img_shape[0] * skew_factor_h)
         img_count = index * total_threads + thread_id + offset
         canvas = cv2.imread(bkg_image_paths[random.randint(0, len(bkg_image_paths) - 1)])
         canvas = cv2.resize(canvas, (skewed_width, skewed_height))
         canvas = enhance_image(canvas)
+        if random.randint(0, 99) > 70:
+            canvas = cv2.blur(canvas, ksize=(10, 10))
         mask_canvas = None
         if is_save_mask:
             mask_canvas = np.zeros((skewed_height, skewed_width, config.img_shape[2]), dtype=np.uint8)
@@ -52,7 +56,7 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
             fruit_label_index = random.randint(1, len(config.fruit_labels) - 1)
             fruit_label = config.fruit_labels[fruit_label_index]
             fruit_image_path = labels_to_images[fruit_label][random.randint(0, len(labels_to_images[fruit_label]) - 1)]
-            fruit_img_size = random.randint(config.min_fruit_size, config.max_fruit_size)
+            fruit_img_size = random.randint(min(config.min_fruit_size, skewed_height, skewed_width), min(config.max_fruit_size, skewed_height, skewed_width))
             rotate_index = random.randint(0, 3)
             initial_fruit_image = cv2.imread(fruit_image_path)
             successfully_added_img = False
@@ -73,7 +77,7 @@ def build_dataset(image_save_path, mask_save_path, annotation_save_path, thread_
                 fruit_image, fruit_mask = apply_partial_cropping(fruit_image, fruit_mask, probability=40, crop_ratio=0.3)
                 w, h = fruit_image.shape[:2]
                 if min(w, h) < config.min_fruit_size or max(w, h) > config.max_fruit_size:
-                    ratio = min(config.min_fruit_size / min(w, h), config.max_fruit_size / max(w, h))
+                    ratio = min(min(w, h) / config.min_fruit_size, config.max_fruit_size / max(w, h))
                     fruit_image = cv2.resize(fruit_image, (int(h * ratio), int(w * ratio)))
                     fruit_mask = build_mask(fruit_image)
                 fruit_image = enhance_image(fruit_image)
@@ -203,9 +207,9 @@ def enhance_image(canvas, contrast=True, brightness=True):
     brightness_factor = 0
     contrast_factor = 1.0
     if contrast:
-        contrast_factor = random.random() * 0.8 + 0.6
+        contrast_factor = random.random() * 1.2 + 0.4
     if brightness:
-        brightness_factor = random.random() * 0.8 + 0.6
+        brightness_factor = random.random() * 1.2 + 0.4
     canvas = cv2.convertScaleAbs(canvas, alpha=contrast_factor, beta=brightness_factor)
     return canvas
 
@@ -322,7 +326,8 @@ def build_mask(fruit_image, threshold=config.mask_threshold):
     img = img_flood_fill | img
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     kernel = np.ones((3, 3), np.uint8)
-    img = cv2.erode(img, kernel, iterations=1)
+    it = max(1, int(h / 100))
+    img = cv2.erode(img, kernel, iterations=it)
     # img = cv2.dilate(img, kernel, iterations=1)
     # img = cv2.erode(img, kernel, iterations=1)
     return img

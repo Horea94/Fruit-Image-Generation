@@ -62,7 +62,13 @@ plt.figure(figsize=(10, 10))
 plt.plot(recalls[1], precisions[1], color='blue', linewidth=1.5)
 plt.xlabel('recall', fontsize=16)
 plt.ylabel('precision', fontsize=16)
+plt.grid(True)
 plt.xticks(np.linspace(0, 1, 11), fontsize=16)
 plt.yticks(np.linspace(0, 1, 11), fontsize=16)
-plt.title("{}, AP: {:.3f}".format(ssd_config.fruit_labels[1], average_precisions[1]), fontsize=16)
+plt.title("{}, AP@0.5 IoU: {:.3f}".format(ssd_config.fruit_labels[1], average_precisions[1]), fontsize=16)
 plt.show()
+
+recall = recalls[1][-1]
+precision = precisions[1][-1]
+f1 = 2.0 * recall * precision / (precision + recall)
+print("recall: %f - precision: %f - F1: %f" % (recall, precision, f1))
