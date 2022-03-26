@@ -2,10 +2,11 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
-from tensorflow.keras.layers import Flatten, Dense, Input, Conv2D, MaxPooling2D, Dropout, TimeDistributed
+from tensorflow.python.keras.layers import Flatten, Dense, Input, Conv2D, MaxPooling2D, Dropout
+from keras.layers import TimeDistributed
 from frcnn.custom_layers.RoiPoolingConv import RoiPoolingConv
 
-import tensorflow.keras.backend as K
+import tensorflow.python.keras.backend as K
 import detection_config
 
 

@@ -3,8 +3,9 @@ import numpy as np
 import cv2
 import random
 import math
+from tensorflow.python.keras.utils.data_utils import Sequence
+
 from frcnn import frcnn_config
-from tensorflow.keras.utils import Sequence
 from frcnn.frcnn_utils import data_augment
 
 

@@ -1,10 +1,11 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-from tensorflow.keras.layers import Input, Add, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D, TimeDistributed, BatchNormalization, Dropout
+from keras.layers import TimeDistributed, BatchNormalization
+from tensorflow.python.keras.layers import Input, Add, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D, Dropout
 from frcnn.custom_layers.RoiPoolingConv import RoiPoolingConv
 
-import tensorflow.keras.backend as K
+import tensorflow.python.keras.backend as K
 from frcnn import frcnn_config
 
 

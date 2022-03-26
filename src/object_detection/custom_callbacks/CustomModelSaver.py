@@ -1,5 +1,5 @@
 import numpy as np
-from tensorflow.keras.callbacks import Callback
+from tensorflow.python.keras.callbacks import Callback
 from custom_callbacks.CustomModelSaverUtil import CustomModelSaverUtil
 
 

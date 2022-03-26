@@ -1,5 +1,5 @@
-from tensorflow.keras import backend as K
-from tensorflow.keras.backend import categorical_crossentropy
+from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.backend import categorical_crossentropy
 
 lambda_rpn_regr = 1.0
 lambda_rpn_class = 1.0

@@ -2,8 +2,8 @@ import math
 import os
 
 from PIL import Image, ImageEnhance
-from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
-from tensorflow.keras.optimizers import Adadelta, SGD
+from tensorflow.python.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.python.keras.optimizers import Adadelta, SGD
 from keras_preprocessing.image import ImageDataGenerator
 
 import network

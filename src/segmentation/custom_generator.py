@@ -3,7 +3,7 @@ import math
 import numpy as np
 import os
 from PIL import Image
-from tensorflow.keras.utils import Sequence
+from tensorflow.python.keras.utils import Sequence
 
 import util
 

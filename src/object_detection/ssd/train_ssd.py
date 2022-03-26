@@ -1,10 +1,10 @@
 import math
 import os
 
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, TerminateOnNaN, CSVLogger
-from tensorflow.keras import backend as K
-from tensorflow.keras.models import load_model
+from tensorflow.python.keras.optimizer_v2.adam import Adam
+from tensorflow.python.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, TerminateOnNaN, CSVLogger
+from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.models import load_model
 
 from models.keras_ssd512 import build_model
 from keras_loss_function.keras_ssd_loss import SSDLoss

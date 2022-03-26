@@ -14,10 +14,10 @@ limitations under the License.
 
 from __future__ import division
 import numpy as np
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Lambda, Activation, Conv2D, MaxPooling2D, ZeroPadding2D, Reshape, Concatenate
-from tensorflow.keras.regularizers import l2
-import tensorflow.keras.backend as K
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.layers import Input, Lambda, Activation, Conv2D, MaxPooling2D, ZeroPadding2D, Reshape, Concatenate
+from tensorflow.python.keras.regularizers import l2
+import tensorflow.python.keras.backend as K
 
 from ssd.keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
 from ssd.keras_layers.keras_layer_L2Normalization import L2Normalization

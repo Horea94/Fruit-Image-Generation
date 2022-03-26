@@ -1,6 +1,6 @@
 # TODO: Copy this file and name it 'ssd_config.py'
 
-from detection_config import *
+from src.object_detection.detection_config import *
 
 # PASCAL VOC: [0.07, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.05]
 # MS COCO: [0.04, 0.1, 0.26, 0.42, 0.58, 0.74, 0.9, 1.06]

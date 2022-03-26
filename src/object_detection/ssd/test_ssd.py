@@ -60,22 +60,22 @@ for file in os.listdir(ssd_config.test_images):
 
     for prediction in y_pred_thresh:
         for box in prediction:
-            xmin = box[-4]
-            ymin = box[-3]
-            xmax = box[-2]
-            ymax = box[-1]
+            xmin = int(box[-4])
+            ymin = int(box[-3])
+            xmax = int(box[-2])
+            ymax = int(box[-1])
             color = colors(int(box[0]) * 1 / ssd_config.num_classes)
             label = '{:.2f}'.format(box[1])
             # current_axis.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin, color=color, fill=False, linewidth=2))
             # current_axis.text(xmin, ymin, label, size='x-large', color='white', bbox={'facecolor': color, 'alpha': 1.0})
 
-            cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (255, 0, 0), 5)
+            cv2.rectangle(img=img, pt1=(xmin, ymin), pt2=(xmax, ymax), color=(255, 0, 0), thickness=5)
 
             # (retval, baseLine) = cv2.getTextSize(label, cv2.FONT_HERSHEY_COMPLEX, 0.4, 1)
             # textOrg = (xmin, ymin)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (0, 0, 0), 2)
             # cv2.rectangle(img, (np.float32(textOrg[0] - 5), np.float32(textOrg[1] + baseLine - 5)), (np.float32(textOrg[0] + retval[0] + 5), np.float32(textOrg[1] - retval[1] - 5)), (255, 255, 255), -1)
-            cv2.putText(img, label, (np.float32(xmin - 10), np.float32(ymin - 10)), cv2.FONT_HERSHEY_DUPLEX, 0.9, (255, 0, 0), 2)
+            cv2.putText(img, label, (xmin - 10, ymin - 10), cv2.FONT_HERSHEY_DUPLEX, 0.9, (255, 0, 0), 2)
 
     if file in fruit_count_per_img:
         global_acc += (1 - abs(len(y_pred_thresh[0]) - fruit_count_per_img[file])/fruit_count_per_img[file])

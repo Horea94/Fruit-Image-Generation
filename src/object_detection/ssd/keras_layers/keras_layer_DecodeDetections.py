@@ -15,8 +15,8 @@ limitations under the License.
 
 from __future__ import division
 import tensorflow as tf
-from tensorflow.keras.layers import InputSpec
-from tensorflow.keras.layers import Layer
+from tensorflow.python.keras.layers import InputSpec
+from tensorflow.python.keras.layers import Layer
 
 
 class DecodeDetections(Layer):

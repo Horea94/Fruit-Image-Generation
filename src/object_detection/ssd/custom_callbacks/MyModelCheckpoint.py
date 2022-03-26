@@ -1,4 +1,4 @@
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 
 class MyModelCheckpoint(ModelCheckpoint):

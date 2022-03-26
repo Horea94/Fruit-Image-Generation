@@ -2,8 +2,8 @@ from __future__ import division
 import os
 import cv2
 import numpy as np
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
+from tensorflow.python.keras.layers import Input
+from tensorflow.python.keras.models import Model
 
 from frcnn.frcnn_utils import roi_helpers
 import frcnn_config

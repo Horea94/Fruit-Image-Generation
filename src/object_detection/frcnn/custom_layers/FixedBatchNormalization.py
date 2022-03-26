@@ -1,6 +1,6 @@
-from tensorflow.keras.layers import Layer, InputSpec
-from tensorflow.keras import initializers, regularizers
-from tensorflow.keras import backend as K
+from tensorflow.python.keras.layers import Layer, InputSpec
+from tensorflow.python.keras import initializers, regularizers
+from tensorflow.python.keras import backend as K
 
 
 class FixedBatchNormalization(Layer):

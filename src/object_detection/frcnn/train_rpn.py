@@ -1,9 +1,9 @@
 from __future__ import division
 import numpy as np
-from tensorflow.keras.callbacks import ReduceLROnPlateau
-from tensorflow.keras.optimizers import Adadelta
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
+from tensorflow.python.keras.callbacks import ReduceLROnPlateau
+from tensorflow.python.keras.optimizer_v2.adadelta import Adadelta
+from tensorflow.python.keras.layers import Input
+from tensorflow.python.keras.models import Model
 
 import frcnn_config
 from utils import simple_parser

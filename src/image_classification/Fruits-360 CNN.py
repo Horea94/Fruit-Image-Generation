@@ -5,11 +5,11 @@ import seaborn as sn
 import os
 from sklearn.metrics import confusion_matrix, classification_report
 
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Conv2D, MaxPooling2D, Flatten, Activation, Dropout, Lambda
-from tensorflow.keras.optimizers import Adadelta
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.layers import Input, Dense, Conv2D, MaxPooling2D, Flatten, Activation, Dropout, Lambda
+from tensorflow.python.keras.optimizers import Adadelta
+from tensorflow.python.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.python.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
 
 ##############################################
 learning_rate = 0.1  # initial learning rate

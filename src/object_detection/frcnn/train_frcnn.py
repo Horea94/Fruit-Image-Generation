@@ -3,10 +3,10 @@ import random
 import time
 import numpy as np
 
-from tensorflow.keras.optimizers import Adadelta
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.utils import Progbar
+from tensorflow.python.keras.optimizer_v2.adadelta import Adadelta
+from tensorflow.python.keras.layers import Input
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.utils.generic_utils import Progbar
 
 import frcnn_config
 from utils import simple_parser
