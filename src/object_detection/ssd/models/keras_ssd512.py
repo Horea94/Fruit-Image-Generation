@@ -19,10 +19,10 @@ from tensorflow.python.keras.layers import Input, Lambda, Activation, Conv2D, Ma
 from tensorflow.python.keras.regularizers import l2
 import tensorflow.python.keras.backend as K
 
-from ssd.keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
-from ssd.keras_layers.keras_layer_L2Normalization import L2Normalization
-from ssd.keras_layers.keras_layer_DecodeDetections import DecodeDetections
-from ssd.keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
+from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
+from keras_layers.keras_layer_L2Normalization import L2Normalization
+from keras_layers.keras_layer_DecodeDetections import DecodeDetections
+from keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
 
 
 def build_model(image_size,
@@ -465,3 +465,12 @@ def build_model(image_size,
         return model, predictor_sizes
     else:
         return model
+
+def get_predictor_sizes(model):
+    return [model.get_layer('conv4_3_norm_mbox_conf').output_shape[1:3],
+            model.get_layer('fc7_mbox_conf').output_shape[1:3],
+            model.get_layer('conv6_2_mbox_conf').output_shape[1:3],
+            model.get_layer('conv7_2_mbox_conf').output_shape[1:3],
+            model.get_layer('conv8_2_mbox_conf').output_shape[1:3],
+            model.get_layer('conv9_2_mbox_conf').output_shape[1:3],
+            model.get_layer('conv10_2_mbox_conf').output_shape[1:3]]

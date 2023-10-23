@@ -19,7 +19,7 @@ limitations under the License.
 from __future__ import division
 import numpy as np
 
-from ssd.bounding_box_utils.bounding_box_utils import iou
+from bounding_box_utils.bounding_box_utils import iou
 
 
 class BoundGenerator:

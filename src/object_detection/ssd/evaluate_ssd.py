@@ -1,9 +1,16 @@
-import ssd_config
-from models.keras_ssd512 import build_model
 from data_generator.object_detection_2d_data_generator import DataGenerator
 from eval_utils.average_precision_evaluator import Evaluator
 from matplotlib import pyplot as plt
 import numpy as np
+
+# Change these imports to use either ssd300 or ssd512
+# ---------------- SSD 300 ----------------
+from models.keras_ssd300 import build_model
+import ssd300_config as ssd_config
+
+# ---------------- SSD 512 ----------------
+# from models.keras_ssd512 import build_model
+# import ssd512_config as ssd_config
 
 model = build_model(image_size=ssd_config.img_shape,
                     n_classes=ssd_config.num_classes - 1,

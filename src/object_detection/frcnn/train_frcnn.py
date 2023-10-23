@@ -3,7 +3,7 @@ import random
 import time
 import numpy as np
 
-from tensorflow.python.keras.optimizer_v2.adadelta import Adadelta
+from tensorflow.python.keras.optimizer_v1 import Adadelta
 from tensorflow.python.keras.layers import Input
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.utils.generic_utils import Progbar

@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau
-from tensorflow.python.keras.optimizer_v2.adadelta import Adadelta
+from tensorflow.python.keras.optimizer_v1 import Adadelta
 from tensorflow.python.keras.layers import Input
 from tensorflow.python.keras.models import Model
 

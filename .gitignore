@@ -13,7 +13,7 @@ src/object_detection/trained
 src/object_detection/labels.txt
 src/object_detection/detection_config.py
 src/object_detection/frcnn/frcnn_config.py
-src/object_detection/ssd/ssd_config.py
+src/object_detection/ssd/ssd*_config.py
 Test
 Training
 test-multiple_fruits

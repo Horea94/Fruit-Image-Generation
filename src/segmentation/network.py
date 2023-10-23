@@ -1,3 +1,4 @@
+from keras.applications.resnet import ResNet50
 from tensorflow.python.keras import Input, Model, regularizers
 from tensorflow.python.keras.layers import Conv2D, MaxPooling2D, Dropout, Conv2DTranspose, Softmax, BatchNormalization, Lambda, Concatenate, Activation, UpSampling2D
 import config

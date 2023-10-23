@@ -43,7 +43,7 @@ try:
 except ImportError:
     warnings.warn("'pickle' module is missing. You won't be able to save parsed file lists and annotations as pickled files.")
 
-from ssd.ssd_encoder_decoder.ssd_input_encoder import SSDInputEncoder
+from ssd_encoder_decoder.ssd_input_encoder import SSDInputEncoder
 from .object_detection_2d_image_boxes_validation_utils import BoxFilter
 
 

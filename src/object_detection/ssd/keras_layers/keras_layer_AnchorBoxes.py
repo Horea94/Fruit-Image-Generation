@@ -18,7 +18,7 @@ import tensorflow.python.keras.backend as K
 from tensorflow.python.keras.layers import InputSpec
 from tensorflow.python.keras.layers import Layer
 
-from ssd.bounding_box_utils.bounding_box_utils import convert_coordinates
+from bounding_box_utils.bounding_box_utils import convert_coordinates
 
 
 class AnchorBoxes(Layer):

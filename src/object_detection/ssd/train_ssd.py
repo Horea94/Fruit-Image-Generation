@@ -1,30 +1,27 @@
 import math
 import os
 
-from tensorflow.python.keras.optimizer_v2.adam import Adam
-from tensorflow.python.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, TerminateOnNaN, CSVLogger
-from tensorflow.python.keras import backend as K
+from keras.src.optimizers import Adam
+from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau, CSVLogger
 from tensorflow.python.keras.models import load_model
 
-from models.keras_ssd512 import build_model
 from keras_loss_function.keras_ssd_loss import SSDLoss
 from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
-from keras_layers.keras_layer_DecodeDetections import DecodeDetections
-from keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
-from ssd.custom_callbacks.MemCleanerCheckpoint import MemCleanerCheckpoint
-from ssd.custom_callbacks.MyModelCheckpoint import MyModelCheckpoint
-from ssd.keras_layers.keras_layer_L2Normalization import L2Normalization
+from custom_callbacks.MemCleanerCheckpoint import MemCleanerCheckpoint
+from custom_callbacks.MyModelCheckpoint import MyModelCheckpoint
+from keras_layers.keras_layer_L2Normalization import L2Normalization
 
 from ssd_encoder_decoder.ssd_input_encoder import SSDInputEncoder
-from ssd_encoder_decoder.ssd_output_decoder import decode_detections, decode_detections_fast
 
 from data_generator.object_detection_2d_data_generator import DataGenerator
-from data_generator.object_detection_2d_misc_utils import apply_inverse_transforms
-from data_generator.data_augmentation_chain_variable_input_size import DataAugmentationVariableInputSize
 from data_generator.data_augmentation_chain_constant_input_size import DataAugmentationConstantInputSize
-from data_generator.data_augmentation_chain_original_ssd import SSDDataAugmentation
-
-import ssd_config
+# Change these imports to use either ssd300 or ssd512
+# ---------------- SSD 300 ----------------
+from models.keras_ssd300 import build_model, get_predictor_sizes
+import ssd300_config as ssd_config
+# ---------------- SSD 512 ----------------
+# from models.keras_ssd512 import build_model, get_predictor_sizes
+# import ssd512_config as ssd_config
 
 
 def get_previous_epoch_and_loss(filename):
@@ -72,7 +69,7 @@ def lookup_or_create_h5_dataset(h5_path, imgs_path, annot_path, labels):
     return dataset
 
 
-adam = Adam(lr=0.00005, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+adam = Adam(learning_rate=0.00005, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 ssd_loss = SSDLoss(neg_pos_ratio=3, alpha=1.0)
 
 start_epoch = 0
@@ -132,13 +129,7 @@ data_augmentation_chain = DataAugmentationConstantInputSize(random_brightness=(-
 
 # 5: Instantiate an encoder that can encode ground truth labels into the format needed by the SSD loss function.
 # The encoder constructor needs the spatial dimensions of the model's predictor layers to create the anchor boxes.
-predictor_sizes = [model.get_layer('conv4_3_norm_mbox_conf').output_shape[1:3],
-                   model.get_layer('fc7_mbox_conf').output_shape[1:3],
-                   model.get_layer('conv6_2_mbox_conf').output_shape[1:3],
-                   model.get_layer('conv7_2_mbox_conf').output_shape[1:3],
-                   model.get_layer('conv8_2_mbox_conf').output_shape[1:3],
-                   model.get_layer('conv9_2_mbox_conf').output_shape[1:3],
-                   model.get_layer('conv10_2_mbox_conf').output_shape[1:3]]
+predictor_sizes = get_predictor_sizes(model)
 
 ssd_input_encoder = SSDInputEncoder(img_height=ssd_config.img_shape[0],
                                     img_width=ssd_config.img_shape[1],
