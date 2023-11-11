@@ -17,3 +17,4 @@ src/object_detection/ssd/ssd*_config.py
 Test
 Training
 test-multiple_fruits
+*__pycache__
