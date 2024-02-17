@@ -480,7 +480,7 @@ class Evaluator:
         if self.data_generator.labels is None:
             raise ValueError("Computing the number of ground truth boxes per class not possible, no ground truth given.")
 
-        num_gt_per_class = np.zeros(shape=(self.n_classes + 1), dtype=np.int)
+        num_gt_per_class = np.zeros(shape=(self.n_classes + 1), dtype=int)
 
         class_id_index = self.gt_format['class_id']
 
@@ -589,8 +589,8 @@ class Evaluator:
             predictions = self.prediction_results[class_id]
 
             # Store the matching results in these lists:
-            true_pos = np.zeros(len(predictions), dtype=np.int)  # 1 for every prediction that is a true positive, 0 otherwise
-            false_pos = np.zeros(len(predictions), dtype=np.int)  # 1 for every prediction that is a false positive, 0 otherwise
+            true_pos = np.zeros(len(predictions), dtype=int)  # 1 for every prediction that is a true positive, 0 otherwise
+            false_pos = np.zeros(len(predictions), dtype=int)  # 1 for every prediction that is a false positive, 0 otherwise
 
             # In case there are no predictions at all for this class, we're done here.
             if len(predictions) == 0:
@@ -687,7 +687,7 @@ class Evaluator:
                             # If the matched ground truth box for this prediction hasn't been matched to a
                             # different prediction already, we have a true positive.
                             true_pos[i] = 1
-                            gt_matched[image_id] = np.zeros(shape=(gt.shape[0]), dtype=np.bool)
+                            gt_matched[image_id] = np.zeros(shape=(gt.shape[0]), dtype=bool)
                             gt_matched[image_id][gt_match_index] = True
                         elif not gt_matched[image_id][gt_match_index]:
                             # True positive:

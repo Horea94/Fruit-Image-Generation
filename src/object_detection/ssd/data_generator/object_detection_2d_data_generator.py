@@ -719,15 +719,15 @@ class DataGenerator:
         # Create a few attributes that tell us what this dataset contains.
         # The dataset will obviously always contain images, but maybe it will
         # also contain labels, image IDs, etc.
-        hdf5_dataset.attrs.create(name='has_labels', data=False, shape=None, dtype=np.bool_)
-        hdf5_dataset.attrs.create(name='has_image_ids', data=False, shape=None, dtype=np.bool_)
-        hdf5_dataset.attrs.create(name='has_eval_neutral', data=False, shape=None, dtype=np.bool_)
+        hdf5_dataset.attrs.create(name='has_labels', data=False, shape=None, dtype=bool)
+        hdf5_dataset.attrs.create(name='has_image_ids', data=False, shape=None, dtype=bool)
+        hdf5_dataset.attrs.create(name='has_eval_neutral', data=False, shape=None, dtype=bool)
         # It's useful to be able to quickly check whether the images in a dataset all
         # have the same size or not, so add a boolean attribute for that.
         if variable_image_size and not resize:
-            hdf5_dataset.attrs.create(name='variable_image_size', data=True, shape=None, dtype=np.bool_)
+            hdf5_dataset.attrs.create(name='variable_image_size', data=True, shape=None, dtype=bool)
         else:
-            hdf5_dataset.attrs.create(name='variable_image_size', data=False, shape=None, dtype=np.bool_)
+            hdf5_dataset.attrs.create(name='variable_image_size', data=False, shape=None, dtype=bool)
 
         # Create the dataset in which the images will be stored as flattened arrays.
         # This allows us, among other things, to store images of variable size.
@@ -772,7 +772,7 @@ class DataGenerator:
             hdf5_eval_neutral = hdf5_dataset.create_dataset(name='eval_neutral',
                                                             shape=(dataset_size,),
                                                             maxshape=(None),
-                                                            dtype=h5py.vlen_dtype(np.bool_))
+                                                            dtype=h5py.vlen_dtype(bool))
 
             hdf5_dataset.attrs.modify(name='has_eval_neutral', value=True)
 
