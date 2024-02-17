@@ -1,9 +1,9 @@
 import math
 import os
 
-from keras.src.optimizers import Adam
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau, CSVLogger
 from tensorflow.python.keras.models import load_model
+from tensorflow.python.keras.optimizer_v2.adam import Adam
 
 from keras_loss_function.keras_ssd_loss import SSDLoss
 from keras_layers.keras_layer_AnchorBoxes import AnchorBoxes
@@ -17,11 +17,11 @@ from data_generator.object_detection_2d_data_generator import DataGenerator
 from data_generator.data_augmentation_chain_constant_input_size import DataAugmentationConstantInputSize
 # Change these imports to use either ssd300 or ssd512
 # ---------------- SSD 300 ----------------
-from models.keras_ssd300 import build_model, get_predictor_sizes
-import ssd300_config as ssd_config
+# from models.keras_ssd300 import build_model, get_predictor_sizes
+# import ssd300_config as ssd_config
 # ---------------- SSD 512 ----------------
-# from models.keras_ssd512 import build_model, get_predictor_sizes
-# import ssd512_config as ssd_config
+from models.keras_ssd512 import build_model, get_predictor_sizes
+import ssd512_config as ssd_config
 
 
 def get_previous_epoch_and_loss(filename):
@@ -69,7 +69,7 @@ def lookup_or_create_h5_dataset(h5_path, imgs_path, annot_path, labels):
     return dataset
 
 
-adam = Adam(learning_rate=0.00005, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+adam = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 ssd_loss = SSDLoss(neg_pos_ratio=3, alpha=1.0)
 
 start_epoch = 0

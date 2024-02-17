@@ -6,11 +6,11 @@ from matplotlib import pyplot as plt
 
 # Change these imports to use either ssd300 or ssd512
 # ---------------- SSD 300 ----------------
-from models.keras_ssd300 import build_model
-import ssd300_config as ssd_config
+# from models.keras_ssd300 import build_model
+# import ssd300_config as ssd_config
 # ---------------- SSD 512 ----------------
-# from models.keras_ssd512 import build_model
-# import ssd512_config as ssd_config
+from models.keras_ssd512 import build_model
+import ssd512_config as ssd_config
 
 model = build_model(image_size=ssd_config.img_shape,
                     n_classes=ssd_config.num_classes - 1,
@@ -38,14 +38,18 @@ np.set_printoptions(precision=2, suppress=True, linewidth=90)
 colors = plt.cm.get_cmap('viridis', ssd_config.num_classes)  # Set the colors for the bounding boxes
 
 fruit_count_per_img = {}
-for file in os.listdir(ssd_config.test_annotations):
-    with open(ssd_config.test_annotations + file, mode='r') as f:
-        lines = f.readlines()
-        filename = lines[0].strip()
-        lines = lines[1:]
-        fruit_count_per_img[filename] = len(lines)
+if os.path.exists(ssd_config.test_annotations):
+    for file in os.listdir(ssd_config.test_annotations):
+        with open(ssd_config.test_annotations + file, mode='r') as f:
+            lines = f.readlines()
+            filename = lines[0].strip()
+            lines = lines[1:]
+            fruit_count_per_img[filename] = len(lines)
 
 global_acc = 0
+
+if not os.path.exists(ssd_config.output_folder):
+    os.makedirs(ssd_config.output_folder)
 
 for file in os.listdir(ssd_config.test_images):
     imgs = []

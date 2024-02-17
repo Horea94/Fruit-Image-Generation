@@ -1,6 +1,6 @@
 # TODO: Copy this file and name it 'detection_config.py'
-# TODO: Replace the project_root with the path to the 'Fruit-Experimental' folder
-project_root = 'C:/Fruit-Experimental/'
+# TODO: Replace the project_root with the path to the 'Fruit-Images-Dataset' folder
+project_root = 'C:/Fruit-Images-Dataset/'
 
 source_dataset_train_folder = project_root + 'Training/'
 source_dataset_test_folder = project_root + 'Test/'

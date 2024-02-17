@@ -29,4 +29,5 @@ ssd_training_log = models_folder + 'ssd/' + model_name + '_training_log.csv'
 ssd_train_h5_data = dataset_root + 'training_fruits.h5'
 ssd_valid_h5_data = dataset_root + 'valid_fruits.h5'
 
+# set to True if you want to load weights that were saved during a previous training session
 use_weights = False
