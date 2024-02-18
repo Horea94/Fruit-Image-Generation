@@ -61,6 +61,10 @@ If the script was executed successfully, under the **src/Dataset** folder there 
 
 **annotations** - contains a text file for each generated image with the coordinates of each bounding box as comma separated values
 
+## How to cite
+
+Horea-Bogdan Mureşan, [An Automated Algorithm for Fruit Image Dataset Building](https://annals-csis.org/Volume_30/drp/pdf/58.pdf), 2022 17th Conference on Computer Science and Intelligence Systems (FedCSIS), pp. 103-107.
+
 ## License ##
 
 MIT License
