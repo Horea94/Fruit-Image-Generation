@@ -70,7 +70,7 @@ In the **test_ssd.py** file import the proper config file (similar to train_ssd.
 
 MIT License
 
-Copyright (c) 2017-2020 [Mihai Oltean](https://mihaioltean.github.io), Horea Muresan
+Copyright (c) 2017-2026 Horea Muresan
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
